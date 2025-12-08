@@ -1,12 +1,16 @@
 const mongoose = require('mongoose');
 
 const hospitalSchema = new mongoose.Schema({
-  hospital_id: {type: String, required: true, unique: true},
-  name: {type: String, required: true},
-  location: {type: String},
+  hospital_id: {type: Number, required: true, unique: true},
+  name: {type: String, required: true, maxLength: 100},
+  address: {type: String, maxLength: 255},
   latitude: {type: Number},
   longitude: {type: Number},
-  address: {type: String},
+  rush_level: {
+    type: String,
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'low'
+  },
   updated_at: {type: Date, default: Date.now}
 });
 

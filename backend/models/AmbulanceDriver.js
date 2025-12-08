@@ -1,14 +1,12 @@
 const mongoose = require('mongoose');
 
 const ambulanceDriverSchema = new mongoose.Schema({
-  driver_id: {type: String, required: true, unique: true},
-  name: {type: String, required: true},
-  license_number: {type: String, required: true},
-  vehicle_number: {type: String, required: true},
-  is_active: {type: Boolean, default: true},
-  address_line: {type: String},
-  address_line_hospital_id:
-      {type: mongoose.Schema.Types.ObjectId, ref: 'Hospital'}
+  driver_id: {type: Number, required: true, unique: true, ref: 'User'},
+  name: {type: String, maxLength: 100},
+  license_number: {type: String, maxLength: 100},
+  vehicle_number: {type: String, maxLength: 50},
+  added_by_hospital_id: {type: Number, ref: 'Hospital'},
+  is_active: {type: Boolean, default: true}
 });
 
 module.exports = mongoose.model('AmbulanceDriver', ambulanceDriverSchema);

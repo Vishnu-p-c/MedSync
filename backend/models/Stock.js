@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 
-const stockSchema = new mongoose.Schema({
-  stock_id: {type: String, required: true, unique: true},
-  item_name: {type: String, required: true},
-  quantity: {type: Number, required: true},
-  last_updated: {type: Date, default: Date.now},
-  hospital_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Hospital'}
+const medicineStockSchema = new mongoose.Schema({
+  stock_id: {type: Number, required: true, unique: true},
+  hospital_id: {type: Number, ref: 'Hospital'},
+  item_name: {type: String, maxLength: 100},
+  quantity: {type: Number},
+  last_updated: {type: Date, default: Date.now}
 });
 
-module.exports = mongoose.model('Stock', stockSchema);
+module.exports = mongoose.model('MedicineStock', medicineStockSchema);

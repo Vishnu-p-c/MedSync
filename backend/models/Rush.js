@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
 
-const rushSchema = new mongoose.Schema({
-  rush_id: {type: String, required: true, unique: true},
-  status: {type: String, required: true},
-  timestamp: {type: Date, default: Date.now},
-  hospital_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Hospital'}
+const hospitalRushLogSchema = new mongoose.Schema({
+  log_id: {type: Number, required: true, unique: true},
+  hospital_id: {type: Number, ref: 'Hospital'},
+  rush_level: {type: String, enum: ['low', 'medium', 'high', 'critical']},
+  timestamp: {type: Date, default: Date.now}
 });
 
-module.exports = mongoose.model('Rush', rushSchema);
+module.exports = mongoose.model('HospitalRushLog', hospitalRushLogSchema);

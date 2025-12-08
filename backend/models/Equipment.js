@@ -1,11 +1,15 @@
 const mongoose = require('mongoose');
 
-const equipmentSchema = new mongoose.Schema({
-  equipment_id: {type: String, required: true, unique: true},
-  equipment_name: {type: String, required: true},
-  status: {type: String, required: true},
-  last_updated: {type: Date, default: Date.now},
-  hospital_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Hospital'}
+const equipmentStatusSchema = new mongoose.Schema({
+  equipment_id: {type: Number, required: true, unique: true},
+  hospital_id: {type: Number, ref: 'Hospital'},
+  equipment_name: {type: String, required: true, maxLength: 100},
+  status: {
+    type: String,
+    enum: ['working', 'down', 'maintenance'],
+    default: 'working'
+  },
+  last_updated: {type: Date, default: Date.now}
 });
 
-module.exports = mongoose.model('Equipment', equipmentSchema);
+module.exports = mongoose.model('EquipmentStatus', equipmentStatusSchema);
