@@ -7,11 +7,11 @@ router.post('/', async (req, res) => {
   const user = await User.findOne({username});
   if (!user) return res.json({status: 'fail', message: 'user_not_found'});
 
-  if (password !== user.password) {
+  if (password !== user.password_hash) {
     return res.json({status: 'fail', message: 'incorrect_password'});
   }
 
-  res.json({status: 'success', user_id: user._id, role: user.role});
+  res.json({status: 'success', user_id: user.user_id, role: user.role});
 });
 
 module.exports = router;

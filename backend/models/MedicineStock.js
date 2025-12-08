@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const stockSchema = new mongoose.Schema({
+const medicineStockSchema = new mongoose.Schema({
   stock_id: {type: String, required: true, unique: true},
   item_name: {type: String, required: true},
   quantity: {type: Number, required: true},
@@ -8,4 +8,4 @@ const stockSchema = new mongoose.Schema({
   hospital_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Hospital'}
 });
 
-module.exports = mongoose.model('Stock', stockSchema);
+module.exports = mongoose.model('MedicineStock', medicineStockSchema);
