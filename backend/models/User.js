@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
     enum: ['admin', 'doctor', 'driver', 'patient'],
     required: true
   },
+  email: {type: String, unique: true, trim: true, maxLength: 100},
   phone: {type: String, maxLength: 20},
   created_at: {type: Date, default: Date.now}
 });
