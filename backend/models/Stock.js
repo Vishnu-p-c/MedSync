@@ -9,3 +9,4 @@ const medicineStockSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('MedicineStock', medicineStockSchema);
+// test
