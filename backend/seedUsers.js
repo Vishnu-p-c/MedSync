@@ -5,7 +5,7 @@ require('dotenv').config();
 const seedUsers = async () => {
   try {
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URL);
     console.log('MongoDB Connected');
 
     // Create test users with new schema
