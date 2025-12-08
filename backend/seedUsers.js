@@ -11,24 +11,24 @@ const seedUsers = async () => {
     // Create test users with new schema
     const users = [
       {
-        user_id: 'USR001',
+        user_id: 1,
         username: 'admin',
         password_hash: 'admin123',
         role: 'admin',
         phone: '1234567890'
       },
       {
-        user_id: 'USR002',
+        user_id: 2,
         username: 'doctor1',
         password_hash: 'doctor123',
         role: 'doctor',
         phone: '0987654321'
       },
       {
-        user_id: 'USR003',
-        username: 'test',
+        user_id: 3,
+        username: 'thusharpradeep',
         password_hash: 'test123',
-        role: 'staff',
+        role: 'admin',
         phone: '5555555555'
       }
     ];
