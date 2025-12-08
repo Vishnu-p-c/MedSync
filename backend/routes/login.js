@@ -2,9 +2,12 @@ const router = require('express').Router();
 const User = require('../models/User');
 
 router.post('/', async (req, res) => {
-  const {username, password} = req.body;
+  const {username, email, password} = req.body;
 
-  const user = await User.findOne({username});
+  // Allow login with either username or email
+  const user =
+      await User.findOne({$or: [{username: username}, {email: email}]});
+
   if (!user) return res.json({status: 'fail', message: 'user_not_found'});
 
   if (password !== user.password_hash) {
