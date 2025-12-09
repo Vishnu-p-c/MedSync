@@ -17,6 +17,6 @@ app.get("/", (req, res) => {
 });
 
 // Routes will be added later
-// app.use("/api/doctors", require("./routes/doctorRoutes"));
+//app.use("/api/doctors", require("./routes/doctorRoutes"));
 
 app.listen(5000, () => console.log("Server running on port 5000"));
