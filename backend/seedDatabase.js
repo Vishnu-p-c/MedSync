@@ -47,7 +47,12 @@ const seedDatabase = async () => {
         password_hash: 'admin123',
         role: 'admin',
         email: 'admin.john@medsync.com',
-        phone: '1234567890'
+        phone: '1234567890',
+        date_of_birth: new Date('1985-05-15'),
+        gender: 'male',
+        address: '789 Admin Street, Central District',
+        latitude: 40.7500,
+        longitude: -74.0100
       },
       {
         user_id: 2,
@@ -55,7 +60,12 @@ const seedDatabase = async () => {
         password_hash: 'doctor123',
         role: 'doctor',
         email: 'dr.sarah@medsync.com',
-        phone: '2345678901'
+        phone: '2345678901',
+        date_of_birth: new Date('1988-08-22'),
+        gender: 'female',
+        address: '456 Medical Plaza, Downtown',
+        latitude: 40.7400,
+        longitude: -74.0200
       },
       {
         user_id: 3,
@@ -63,7 +73,12 @@ const seedDatabase = async () => {
         password_hash: 'driver123',
         role: 'driver',
         email: 'driver.mike@medsync.com',
-        phone: '3456789012'
+        phone: '3456789012',
+        date_of_birth: new Date('1990-03-10'),
+        gender: 'male',
+        address: '321 Driver Lane, East Side',
+        latitude: 40.7350,
+        longitude: -74.0050
       },
       {
         user_id: 4,
@@ -71,7 +86,12 @@ const seedDatabase = async () => {
         password_hash: 'patient123',
         role: 'patient',
         email: 'patient.jane@medsync.com',
-        phone: '4567890123'
+        phone: '4567890123',
+        date_of_birth: new Date('1995-11-30'),
+        gender: 'female',
+        address: '123 Residential Ave, West End, Apartment 4B',
+        latitude: 40.7200,
+        longitude: -74.0100
       },
       {
         user_id: 5,
@@ -79,7 +99,12 @@ const seedDatabase = async () => {
         password_hash: 'test123',
         role: 'admin',
         email: 'thushar02.pradeep@gmail.com',
-        phone: '5555555555'
+        phone: '5555555555',
+        date_of_birth: new Date('2000-02-15'),
+        gender: 'male',
+        address: '999 Tech Park, Innovation District',
+        latitude: 40.7600,
+        longitude: -73.9900
       }
     ]);
     console.log('✅ Created 5 users');
