@@ -1,4 +1,5 @@
 const router = require('express').Router();
+const bcrypt = require('bcrypt');
 const User = require('../models/User');
 
 router.post('/', async (req, res) => {
@@ -10,7 +11,9 @@ router.post('/', async (req, res) => {
 
   if (!user) return res.json({status: 'fail', message: 'user_not_found'});
 
-  if (password !== user.password_hash) {
+  // Compare password with bcrypt
+  const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+  if (!isPasswordValid) {
     return res.json({status: 'fail', message: 'incorrect_password'});
   }
 
