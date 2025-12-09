@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
   email:
       {type: String, required: true, unique: true, trim: true, maxLength: 100},
   phone: {type: String, required: true, maxLength: 20},
-  date_of_birth: {type: Date},
+  date_of_birth: {type: Date, required: true},
   gender: {type: String, enum: ['male', 'female', 'other']},
   address: {type: String, maxLength: 500},
   latitude: {type: Number},
