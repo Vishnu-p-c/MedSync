@@ -23,13 +23,4 @@ const userSchema = new mongoose.Schema({
   created_at: {type: Date, default: Date.now}
 });
 
-// Custom validation: if role is patient, address is required
-userSchema.pre('save', function(next) {
-  if (this.role === 'patient' && !this.address) {
-    next(new Error('Address is required for patients'));
-  } else {
-    next();
-  }
-});
-
 module.exports = mongoose.model('User', userSchema);
