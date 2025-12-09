@@ -43,6 +43,8 @@ const seedDatabase = async () => {
     await User.insertMany([
       {
         user_id: 1,
+        first_name: 'John',
+        last_name: 'Smith',
         username: 'admin_john',
         password_hash: 'admin123',
         role: 'admin',
@@ -56,6 +58,8 @@ const seedDatabase = async () => {
       },
       {
         user_id: 2,
+        first_name: 'Sarah',
+        last_name: 'Johnson',
         username: 'dr_sarah',
         password_hash: 'doctor123',
         role: 'doctor',
@@ -69,6 +73,8 @@ const seedDatabase = async () => {
       },
       {
         user_id: 3,
+        first_name: 'Mike',
+        last_name: 'Anderson',
         username: 'driver_mike',
         password_hash: 'driver123',
         role: 'driver',
@@ -82,6 +88,8 @@ const seedDatabase = async () => {
       },
       {
         user_id: 4,
+        first_name: 'Jane',
+        last_name: 'Williams',
         username: 'patient_jane',
         password_hash: 'patient123',
         role: 'patient',
@@ -95,6 +103,8 @@ const seedDatabase = async () => {
       },
       {
         user_id: 5,
+        first_name: 'Thushar',
+        last_name: 'Pradeep',
         username: 'thusharpradeep',
         password_hash: 'test123',
         role: 'admin',
