@@ -19,9 +19,19 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!username || !password || !email || !phone || !date_of_birth ||
-        !gender || !address || !latitude || !longitude || !first_name) {
-      return res.json({status: 'fail', message: 'missing_fields'});
+    const missingFields = [];
+    if (!first_name) missingFields.push('first_name');
+    if (!username) missingFields.push('username');
+    if (!password) missingFields.push('password');
+    if (!email) missingFields.push('email');
+    if (!phone) missingFields.push('phone');
+    if (!date_of_birth) missingFields.push('date_of_birth');
+    if (!gender) missingFields.push('gender');
+    if (!address) missingFields.push('address');
+
+    if (missingFields.length > 0) {
+      return res.json(
+          {status: 'fail', message: 'missing_fields', missing: missingFields});
     }
 
     // Check if username or email already exists
