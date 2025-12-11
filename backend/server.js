@@ -4,6 +4,8 @@ const connectDB = require('./config/db');
 require('dotenv').config();
 const loginRoute = require('./routes/login');
 const registerPatientRoute = require('./routes/registerpatient');
+const sendVerificationRoute = require('./routes/sendVerificationCode');
+const verifyCodeRoute = require('./routes/verifyCode');
 
 const app = express();
 
@@ -21,6 +23,8 @@ app.get('/', (req, res) => {
 // Routes
 app.use('/login', loginRoute);
 app.use('/registerpatient', registerPatientRoute);
+app.use('/send-verification-code', sendVerificationRoute);
+app.use('/verify-code', verifyCodeRoute);
 // app.use("/api/doctors", require("./routes/doctorRoutes"));
 
 app.listen(5000, () => console.log('Server running on port 5000'));
