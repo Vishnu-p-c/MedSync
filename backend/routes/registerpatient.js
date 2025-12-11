@@ -77,7 +77,23 @@ router.post('/', async (req, res) => {
       });
 
       await newUser.save();
-      return {status: 'success', message: 'registered'};
+
+      // Return all user details except username and password
+      return {
+        status: 'success',
+        user_id: newUser.user_id,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        role: newUser.role,
+        email: newUser.email,
+        phone: newUser.phone,
+        date_of_birth: newUser.date_of_birth,
+        gender: newUser.gender,
+        address: newUser.address,
+        latitude: newUser.latitude,
+        longitude: newUser.longitude,
+        created_at: newUser.created_at
+      };
     }
 
     const result = await createUser(newUserId);
