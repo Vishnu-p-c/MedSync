@@ -35,6 +35,13 @@ router.post('/', async (req, res) => {
       return res.json({status: 'fail', message: 'Email is required'});
     }
 
+    // Check if email credentials are configured
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error('Email credentials not configured');
+      return res.json(
+          {status: 'fail', message: 'Email service not configured'});
+    }
+
     // Rate limiting check
     const now = Date.now();
     const rateLimit = rateLimits.get(email);
@@ -82,8 +89,13 @@ router.post('/', async (req, res) => {
 
     res.json({status: 'success', message: 'Verification code sent'});
   } catch (error) {
-    console.error('Email sending error:', error);
-    res.json({status: 'fail', message: 'Email delivery failed'});
+    console.error('Email sending error:', error.message);
+    console.error('Error details:', error);
+    res.json({
+      status: 'fail',
+      message: 'Email delivery failed',
+      error: error.message
+    });
   }
 });
 
