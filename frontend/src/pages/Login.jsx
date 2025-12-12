@@ -14,7 +14,7 @@ function Login() {
     e.preventDefault();
     const res = await loginUser(username,password);
     if (res.success){
-      navigate('/doctor-dashboard');
+      navigate('/admin-dashboard');
     }
     else {
       setMsg(res.message);
