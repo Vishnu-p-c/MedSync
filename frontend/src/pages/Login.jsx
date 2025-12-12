@@ -13,7 +13,7 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const res = await loginUser(username,password);
-    if (res.success){
+    if (res.status === "success" && res.role === 'admin'){
       navigate('/admin-dashboard');
     }
     else {
