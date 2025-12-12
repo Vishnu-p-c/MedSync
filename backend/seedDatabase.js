@@ -39,8 +39,9 @@ const seedDatabase = async () => {
     await HospitalRushLog.deleteMany({});
     console.log('Cleared all existing data');
 
-    // 1. Create Users
+    // 1. Create Users - 5 Admins, 5 Doctors, 5 Drivers, 5 Patients
     await User.insertMany([
+      // Admins (5)
       {
         user_id: 1,
         first_name: 'John',
@@ -58,6 +59,68 @@ const seedDatabase = async () => {
       },
       {
         user_id: 2,
+        first_name: 'Thushar',
+        last_name: 'Pradeep',
+        username: 'thusharpraddeep',
+        password_hash: 'test123',
+        role: 'admin',
+        email: 'thushar02.pradeep@gmail.com',
+        phone: '5555555555',
+        date_of_birth: new Date('2000-02-15'),
+        gender: 'male',
+        address: '999 Tech Park, Innovation District',
+        latitude: 40.7600,
+        longitude: -73.9900
+      },
+      {
+        user_id: 3,
+        first_name: 'Emily',
+        last_name: 'Davis',
+        username: 'admin_emily',
+        password_hash: 'admin123',
+        role: 'admin',
+        email: 'emily.davis@medsync.com',
+        phone: '1112223333',
+        date_of_birth: new Date('1987-09-20'),
+        gender: 'female',
+        address: '456 Executive Lane, Business District',
+        latitude: 40.7450,
+        longitude: -74.0150
+      },
+      {
+        user_id: 4,
+        first_name: 'Robert',
+        last_name: 'Chen',
+        username: 'admin_robert',
+        password_hash: 'admin123',
+        role: 'admin',
+        email: 'robert.chen@medsync.com',
+        phone: '2223334444',
+        date_of_birth: new Date('1982-03-12'),
+        gender: 'male',
+        address: '321 Management St, Corporate Plaza',
+        latitude: 40.7550,
+        longitude: -74.0050
+      },
+      {
+        user_id: 5,
+        first_name: 'Maria',
+        last_name: 'Rodriguez',
+        username: 'admin_maria',
+        password_hash: 'admin123',
+        role: 'admin',
+        email: 'maria.rodriguez@medsync.com',
+        phone: '3334445555',
+        date_of_birth: new Date('1990-07-08'),
+        gender: 'female',
+        address: '789 Leadership Blvd, Admin Center',
+        latitude: 40.7480,
+        longitude: -74.0120
+      },
+
+      // Doctors (5)
+      {
+        user_id: 6,
         first_name: 'Sarah',
         last_name: 'Johnson',
         username: 'dr_sarah',
@@ -72,7 +135,69 @@ const seedDatabase = async () => {
         longitude: -74.0200
       },
       {
-        user_id: 3,
+        user_id: 7,
+        first_name: 'David',
+        last_name: 'Kumar',
+        username: 'dr_david',
+        password_hash: 'doctor123',
+        role: 'doctor',
+        email: 'dr.david@medsync.com',
+        phone: '4445556666',
+        date_of_birth: new Date('1985-04-15'),
+        gender: 'male',
+        address: '123 Hospital Ave, Medical District',
+        latitude: 40.7420,
+        longitude: -74.0180
+      },
+      {
+        user_id: 8,
+        first_name: 'Lisa',
+        last_name: 'Thompson',
+        username: 'dr_lisa',
+        password_hash: 'doctor123',
+        role: 'doctor',
+        email: 'dr.lisa@medsync.com',
+        phone: '5556667777',
+        date_of_birth: new Date('1992-11-30'),
+        gender: 'female',
+        address: '789 Clinic Road, Healthcare Center',
+        latitude: 40.7390,
+        longitude: -74.0210
+      },
+      {
+        user_id: 9,
+        first_name: 'James',
+        last_name: 'Lee',
+        username: 'dr_james',
+        password_hash: 'doctor123',
+        role: 'doctor',
+        email: 'dr.james@medsync.com',
+        phone: '6667778888',
+        date_of_birth: new Date('1983-06-18'),
+        gender: 'male',
+        address: '456 Surgery Lane, Medical Complex',
+        latitude: 40.7410,
+        longitude: -74.0190
+      },
+      {
+        user_id: 10,
+        first_name: 'Anna',
+        last_name: 'Martinez',
+        username: 'dr_anna',
+        password_hash: 'doctor123',
+        role: 'doctor',
+        email: 'dr.anna@medsync.com',
+        phone: '7778889999',
+        date_of_birth: new Date('1989-02-25'),
+        gender: 'female',
+        address: '321 Emergency Rd, ER Center',
+        latitude: 40.7430,
+        longitude: -74.0170
+      },
+
+      // Drivers (5)
+      {
+        user_id: 11,
         first_name: 'Mike',
         last_name: 'Anderson',
         username: 'driver_mike',
@@ -87,7 +212,69 @@ const seedDatabase = async () => {
         longitude: -74.0050
       },
       {
-        user_id: 4,
+        user_id: 12,
+        first_name: 'Tom',
+        last_name: 'Wilson',
+        username: 'driver_tom',
+        password_hash: 'driver123',
+        role: 'driver',
+        email: 'driver.tom@medsync.com',
+        phone: '8889990000',
+        date_of_birth: new Date('1987-12-05'),
+        gender: 'male',
+        address: '654 Ambulance St, Dispatch Center',
+        latitude: 40.7360,
+        longitude: -74.0060
+      },
+      {
+        user_id: 13,
+        first_name: 'Carlos',
+        last_name: 'Garcia',
+        username: 'driver_carlos',
+        password_hash: 'driver123',
+        role: 'driver',
+        email: 'driver.carlos@medsync.com',
+        phone: '9990001111',
+        date_of_birth: new Date('1993-08-14'),
+        gender: 'male',
+        address: '987 Rescue Ave, Emergency Zone',
+        latitude: 40.7340,
+        longitude: -74.0070
+      },
+      {
+        user_id: 14,
+        first_name: 'Ahmed',
+        last_name: 'Hassan',
+        username: 'driver_ahmed',
+        password_hash: 'driver123',
+        role: 'driver',
+        email: 'driver.ahmed@medsync.com',
+        phone: '1011121314',
+        date_of_birth: new Date('1991-05-20'),
+        gender: 'male',
+        address: '234 Response Rd, EMT Station',
+        latitude: 40.7370,
+        longitude: -74.0040
+      },
+      {
+        user_id: 15,
+        first_name: 'Kevin',
+        last_name: 'Brown',
+        username: 'driver_kevin',
+        password_hash: 'driver123',
+        role: 'driver',
+        email: 'driver.kevin@medsync.com',
+        phone: '1415161718',
+        date_of_birth: new Date('1988-09-28'),
+        gender: 'male',
+        address: '567 Fleet St, Vehicle Center',
+        latitude: 40.7380,
+        longitude: -74.0030
+      },
+
+      // Patients (5)
+      {
+        user_id: 16,
         first_name: 'Jane',
         last_name: 'Williams',
         username: 'patient_jane',
@@ -102,22 +289,68 @@ const seedDatabase = async () => {
         longitude: -74.0100
       },
       {
-        user_id: 5,
-        first_name: 'Thushar',
-        last_name: 'Pradeep',
-        username: 'thusharpradeep',
-        password_hash: 'test123',
-        role: 'admin',
-        email: 'thushar02.pradeep@gmail.com',
-        phone: '5555555555',
-        date_of_birth: new Date('2000-02-15'),
+        user_id: 17,
+        first_name: 'Michael',
+        last_name: 'Taylor',
+        username: 'patient_michael',
+        password_hash: 'patient123',
+        role: 'patient',
+        email: 'michael.taylor@email.com',
+        phone: '1819202122',
+        date_of_birth: new Date('1998-01-12'),
         gender: 'male',
-        address: '999 Tech Park, Innovation District',
-        latitude: 40.7600,
-        longitude: -73.9900
+        address: '789 Oak Street, Suburb Area, House 12',
+        latitude: 40.7210,
+        longitude: -74.0090
+      },
+      {
+        user_id: 18,
+        first_name: 'Jennifer',
+        last_name: 'White',
+        username: 'patient_jennifer',
+        password_hash: 'patient123',
+        role: 'patient',
+        email: 'jennifer.white@email.com',
+        phone: '2223242526',
+        date_of_birth: new Date('1992-06-25'),
+        gender: 'female',
+        address: '456 Pine Road, Residential Complex, Unit 8A',
+        latitude: 40.7190,
+        longitude: -74.0110
+      },
+      {
+        user_id: 19,
+        first_name: 'Daniel',
+        last_name: 'Moore',
+        username: 'patient_daniel',
+        password_hash: 'patient123',
+        role: 'patient',
+        email: 'daniel.moore@email.com',
+        phone: '2728293031',
+        date_of_birth: new Date('1985-10-08'),
+        gender: 'male',
+        address: '321 Maple Ave, Downtown, Apartment 5C',
+        latitude: 40.7220,
+        longitude: -74.0080
+      },
+      {
+        user_id: 20,
+        first_name: 'Sophia',
+        last_name: 'Anderson',
+        username: 'patient_sophia',
+        password_hash: 'patient123',
+        role: 'patient',
+        email: 'sophia.anderson@email.com',
+        phone: '3233343536',
+        date_of_birth: new Date('2001-03-17'),
+        gender: 'female',
+        address: '654 Elm Street, City Center, Flat 3B',
+        latitude: 40.7230,
+        longitude: -74.0070
       }
     ]);
-    console.log('✅ Created 5 users');
+    console.log(
+        '✅ Created 20 users (5 admins, 5 doctors, 5 drivers, 5 patients)');
 
     // 2. Create Hospitals
     await Hospital.insertMany([
