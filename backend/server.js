@@ -1,7 +1,9 @@
-const express = require("express");
-const cors = require("cors");
-const connectDB = require("./config/db");
-require("dotenv").config();
+const express = require('express');
+const cors = require('cors');
+const connectDB = require('./config/db');
+require('dotenv').config();
+const loginRoute = require('./routes/login');
+const registerPatientRoute = require('./routes/registerpatient');
 
 const app = express();
 
@@ -12,11 +14,13 @@ app.use(express.json());
 // Connect database
 connectDB();
 
-app.get("/", (req, res) => {
-  res.send("MedSync Backend Running");
+app.get('/', (req, res) => {
+  res.send('MedSync Backend Running');
 });
 
-// Routes will be added later
-//app.use("/api/doctors", require("./routes/doctorRoutes"));
+// Routes
+app.use('/login', loginRoute);
+app.use('/registerpatient', registerPatientRoute);
+// app.use("/api/doctors", require("./routes/doctorRoutes"));
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+app.listen(5000, () => console.log('Server running on port 5000'));
