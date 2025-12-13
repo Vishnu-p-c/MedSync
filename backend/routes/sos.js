@@ -128,4 +128,62 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// POST /sos/cancel
+router.post('/cancel', async (req, res) => {
+  try {
+    const {sos_id, patient_id} = req.body;
+
+    // Validate required fields
+    const missing = [];
+    if (sos_id === undefined || sos_id === null) missing.push('sos_id');
+    if (patient_id === undefined || patient_id === null)
+      missing.push('patient_id');
+    if (missing.length) {
+      return res.status(400).json(
+          {status: 'error', message: `missing_fields: ${missing.join(', ')}`});
+    }
+
+    const sosIdNum = Number(sos_id);
+    if (isNaN(sosIdNum)) {
+      return res.status(400).json(
+          {status: 'error', message: 'sos_id_must_be_number'});
+    }
+
+    const sos = await SosRequest.findOne({sos_id: sosIdNum});
+    if (!sos) {
+      return res.json({status: 'sos_not_found'});
+    }
+
+    // If already completed, cannot cancel
+    if (sos.status === 'completed') {
+      return res.json({status: 'fail', message: 'cannot_cancel_now'});
+    }
+
+    // If already cancelled
+    if (sos.status === 'cancelled') {
+      return res.json({status: 'already_cancelled'});
+    }
+
+    // Optional: ensure the requesting patient is the owner of the SOS
+    if (Number(sos.patient_id) !== Number(patient_id)) {
+      return res.status(403).json(
+          {status: 'fail', message: 'not_request_owner'});
+    }
+
+    // Only pending or assigned can be cancelled
+    if (sos.status === 'pending' || sos.status === 'assigned') {
+      sos.status = 'cancelled';
+      sos.cancelled_before_pickup = true;
+      await sos.save();
+      return res.json({status: 'success', message: 'sos_cancelled'});
+    }
+
+    // Fallback
+    return res.json({status: 'fail', message: 'cannot_cancel_now'});
+  } catch (err) {
+    console.error('Error cancelling SOS request:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
 module.exports = router;
