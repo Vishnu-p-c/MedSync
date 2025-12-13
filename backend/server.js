@@ -4,6 +4,7 @@ const connectDB = require('./config/db');
 require('dotenv').config();
 const loginRoute = require('./routes/login');
 const registerPatientRoute = require('./routes/registerpatient');
+const sosRoutes = require('./routes/sos');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.get('/', (req, res) => {
 // Routes
 app.use('/login', loginRoute);
 app.use('/registerpatient', registerPatientRoute);
+app.use('/sos', sosRoutes);
 // app.use("/api/doctors", require("./routes/doctorRoutes"));
 
 app.listen(5000, () => console.log('Server running on port 5000'));
