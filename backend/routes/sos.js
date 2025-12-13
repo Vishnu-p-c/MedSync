@@ -7,7 +7,8 @@ const AmbulanceLiveLocation = require('../models/AmbulanceLiveLocation');
 // const Hospital = require('../models/Hospital'); // optional for future use
 
 // Helper: allowed severity values come from the schema
-const ALLOWED_SEVERITIES = ['critical', 'severe', 'moderate', 'mild'];
+const ALLOWED_SEVERITIES =
+    ['critical', 'severe', 'moderate', 'mild', 'unknown'];
 
 // POST /sos/create
 router.post('/create', async (req, res) => {
@@ -33,12 +34,10 @@ router.post('/create', async (req, res) => {
           {status: 'error', message: 'latitude_and_longitude_must_be_numbers'});
     }
 
-    // Validate severity if provided
+    // Validate severity (treat missing/empty as 'unknown')
     let severityToStore;
     if (severity === undefined || severity === null || severity === '') {
-      // API-level default shown as 'unknown' but schema does not allow
-      // 'unknown'
-      severityToStore = undefined;  // do not set field in DB
+      severityToStore = 'unknown';
     } else if (!ALLOWED_SEVERITIES.includes(severity)) {
       return res.status(400).json({
         status: 'error',
@@ -57,7 +56,7 @@ router.post('/create', async (req, res) => {
       latitude: Number(latitude),
       longitude: Number(longitude),
       // only set severity when it's valid per schema
-      ...(severityToStore ? {severity: severityToStore} : {}),
+      severity: severityToStore,
       status: 'pending',
       assigned_driver_id: null,
       assigned_hospital_id: null,

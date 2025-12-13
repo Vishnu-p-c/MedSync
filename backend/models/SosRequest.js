@@ -5,7 +5,11 @@ const sosRequestSchema = new mongoose.Schema({
   patient_id: {type: Number, ref: 'User'},
   latitude: {type: Number},
   longitude: {type: Number},
-  severity: {type: String, enum: ['critical', 'severe', 'moderate', 'mild']},
+  severity: {
+    type: String,
+    enum: ['critical', 'severe', 'moderate', 'mild', 'unknown'],
+    default: 'unknown'
+  },
   status: {
     type: String,
     enum: ['pending', 'assigned', 'cancelled', 'completed'],
