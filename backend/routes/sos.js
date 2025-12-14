@@ -128,7 +128,7 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// POST /sos/cancel
+// POST /sos/cancel  route
 router.post('/cancel', async (req, res) => {
   try {
     const {sos_id, patient_id} = req.body;
