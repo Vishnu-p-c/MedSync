@@ -16,6 +16,7 @@ const sosRequestSchema = new mongoose.Schema({
     default: 'pending'
   },
   created_at: {type: Date, default: Date.now},
+  eta_minutes: {type: Number, default: null},
   cancelled_before_pickup: {type: Boolean, default: false},
   assigned_driver_id: {type: Number, ref: 'AmbulanceDriver'},
   assigned_hospital_id: {type: Number, ref: 'Hospital'}
