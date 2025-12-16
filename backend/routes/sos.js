@@ -116,7 +116,10 @@ router.post('/status', async (req, res) => {
 
       return res.json({
         status: 'assigned',
-        driver_name: driver ? driver.name : null,
+        driver_name: driver ? `${(driver.first_name || '').trim()} ${
+                                  (driver.last_name || '').trim()}`
+                                  .trim() :
+                              null,
         vehicle_number: driver ? driver.vehicle_number : null,
         assigned_hospital_id: sos.assigned_hospital_id || null,
         eta: sos.eta_minutes || 10
