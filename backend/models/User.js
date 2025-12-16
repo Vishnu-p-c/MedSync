@@ -17,7 +17,14 @@ const userSchema = new mongoose.Schema({
   phone: {type: String, required: true, maxLength: 20},
   date_of_birth: {type: Date, required: true},
   gender: {type: String, enum: ['male', 'female', 'other']},
-  address: {type: String, maxLength: 500},
+  address: {
+    type: String,
+    maxLength: 500,
+    required: function() {
+      // address is optional for drivers, required for other roles
+      return this.role !== 'driver';
+    }
+  },
   latitude: {type: Number},
   longitude: {type: Number},
   created_at: {type: Date, default: Date.now}
