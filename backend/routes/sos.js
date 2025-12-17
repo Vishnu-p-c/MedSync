@@ -110,9 +110,20 @@ router.post('/status', async (req, res) => {
     if (sos.status === 'assigned') {
       const driverId = sos.assigned_driver_id;
       let driver = null;
+      let live = null;
       if (driverId !== undefined && driverId !== null) {
         driver =
             await AmbulanceDriver.findOne({driver_id: Number(driverId)}).lean();
+        try {
+          live =
+              await AmbulanceLiveLocation.findOne({driver_id: Number(driverId)})
+                  .lean();
+        } catch (err) {
+          // non-fatal: missing live location is allowed
+          console.error(
+              'Error fetching live location for status response', err);
+          live = null;
+        }
       }
 
       return res.json({
@@ -123,7 +134,11 @@ router.post('/status', async (req, res) => {
                               null,
         vehicle_number: driver ? driver.vehicle_number : null,
         assigned_hospital_id: sos.assigned_hospital_id || null,
-        eta: sos.eta_minutes || 10
+        eta: sos.eta_minutes || 10,
+        driver_latitude: live && live.latitude !== undefined ? live.latitude :
+                                                               null,
+        driver_longitude:
+            live && live.longitude !== undefined ? live.longitude : null
       });
     }
 
