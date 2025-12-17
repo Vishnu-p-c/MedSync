@@ -4,6 +4,7 @@ const AmbulanceLiveLocation = require('../models/AmbulanceLiveLocation');
 const AmbulanceAssignment = require('../models/AmbulanceAssignment');
 const SosRequest = require('../models/SosRequest');
 const User = require('../models/User');
+const Hospital = require('../models/Hospital');
 
 // POST /driver/duty
 // Body: { driver_id: Number, on_duty: Boolean }
@@ -168,6 +169,21 @@ router.post('/assigned-sos', async (req, res) => {
              (patient.first_name || '').trim()) :
         null;
 
+    // Resolve hospital name if assigned_hospital_id exists
+    let assignedHospitalName = null;
+    try {
+      if (sos.assigned_hospital_id !== undefined &&
+          sos.assigned_hospital_id !== null) {
+        const hosp =
+            await Hospital.findOne({hospital_id: sos.assigned_hospital_id})
+                .lean();
+        assignedHospitalName = hosp ? hosp.name : null;
+      }
+    } catch (err) {
+      console.error('Error fetching assigned hospital name:', err);
+      assignedHospitalName = null;
+    }
+
     return res.json({
       status: 'assigned',
       sos_id: sos.sos_id,
@@ -175,7 +191,7 @@ router.post('/assigned-sos', async (req, res) => {
       patient_name: patientName,
       patient_latitude: sos.latitude,
       patient_longitude: sos.longitude,
-      assigned_hospital_id: sos.assigned_hospital_id || null,
+      assigned_hospital_name: assignedHospitalName,
       eta: sos.eta_minutes || 10
     });
   } catch (err) {
