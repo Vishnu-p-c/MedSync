@@ -294,6 +294,52 @@ function haversineDistanceKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+// --- Background poller -------------------------------------------------
+// Periodically check for pending SOS requests (status='pending' and
+// assigned_driver_id=null) and attempt assignment. Runs every 2 seconds.
+let _pendingSosPollRunning = false;
+async function pollPendingSosAndAssign() {
+  if (_pendingSosPollRunning) return;
+  _pendingSosPollRunning = true;
+  try {
+    const pendings =
+        await SosRequest.find({status: 'pending', assigned_driver_id: null})
+            .lean();
+    if (!pendings || pendings.length === 0) {
+      _pendingSosPollRunning = false;
+      return;
+    }
+
+    for (const s of pendings) {
+      try {
+        // Re-run assignment logic; assignNearestDriver uses an atomic update
+        // so concurrent attempts won't create duplicate assignments.
+        await assignNearestDriver(s);
+      } catch (err) {
+        console.error(
+            'Error attempting assignment for pending SOS', s.sos_id, err);
+      }
+    }
+  } catch (err) {
+    console.error('Error polling pending SOS requests:', err);
+  } finally {
+    _pendingSosPollRunning = false;
+  }
+}
+
+// Start poller when this module is loaded
+const SOS_POLL_INTERVAL_MS = 2000;
+const _sosPollInterval = setInterval(() => {
+  pollPendingSosAndAssign().catch(
+      (err) => console.error('Poller fatal error', err));
+}, SOS_POLL_INTERVAL_MS);
+
+// Optional: gracefully clear interval on process exit
+process.on('SIGINT', () => {
+  clearInterval(_sosPollInterval);
+  process.exit();
+});
+
 // POST /sos/cancel  route
 router.post('/cancel', async (req, res) => {
   try {
