@@ -175,6 +175,7 @@ router.post('/assigned-sos', async (req, res) => {
       patient_name: patientName,
       patient_latitude: sos.latitude,
       patient_longitude: sos.longitude,
+      assigned_hospital_id: sos.assigned_hospital_id || null,
       eta: sos.eta_minutes || 10
     });
   } catch (err) {
