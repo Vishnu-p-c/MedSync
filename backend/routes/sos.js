@@ -4,6 +4,7 @@ const router = express.Router();
 const SosRequest = require('../models/SosRequest');
 const AmbulanceDriver = require('../models/AmbulanceDriver');
 const AmbulanceLiveLocation = require('../models/AmbulanceLiveLocation');
+const AmbulanceAssignment = require('../models/AmbulanceAssignment');
 // const Hospital = require('../models/Hospital'); // optional for future use
 const https = require('https');
 const {URL} = require('url');
@@ -202,6 +203,26 @@ async function assignNearestDriver(sos) {
                           },
                           {new: true})
                       .lean();
+
+  // If we successfully transitioned the SOS to 'assigned', create an
+  // AmbulanceAssignment record exactly once (use upsert with $setOnInsert).
+  if (updated) {
+    try {
+      await AmbulanceAssignment.findOneAndUpdate(
+          {sos_id: sos.sos_id}, {
+            $setOnInsert: {
+              assignment_id: Date.now(),
+              sos_id: sos.sos_id,
+              driver_id: best.driver_id,
+              assigned_hospital_id: updated.assigned_hospital_id || null,
+              assigned_at: new Date()
+            }
+          },
+          {upsert: true, new: true});
+    } catch (err) {
+      console.error('Error creating AmbulanceAssignment record:', err);
+    }
+  }
 
   return updated;
 }
