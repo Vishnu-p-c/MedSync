@@ -13,6 +13,10 @@ const {URL} = require('url');
 const ALLOWED_SEVERITIES =
     ['critical', 'severe', 'moderate', 'mild', 'unknown'];
 
+// In-memory state for offer timeouts: sos_id -> timeout handle
+const OFFER_TIMEOUT_MS = 15000;  // 15 seconds
+const _offerTimeouts = new Map();
+
 // POST /sos/create
 router.post('/create', async (req, res) => {
   try {
@@ -60,9 +64,14 @@ router.post('/create', async (req, res) => {
       longitude: Number(longitude),
       // only set severity when it's valid per schema
       severity: severityToStore,
-      status: 'pending',
+      // new workflow: awaiting_driver while drivers are polled
+      status: 'awaiting_driver',
       assigned_driver_id: null,
       assigned_hospital_id: null,
+      // candidate and rejected lists
+      current_driver_candidate: null,
+      rejected_drivers: [],
+      request_sent_at: null,
       created_at: new Date(),
       cancelled_before_pickup: false
     });
@@ -71,11 +80,16 @@ router.post('/create', async (req, res) => {
 
     // Try to assign nearest available driver asynchronously but
     // do not fail the request if assignment cannot be completed.
+    // Try to offer to nearest driver asynchronously but do not fail the request
     (async () => {
       try {
-        await assignNearestDriver(sosDoc);
+        // find nearest active driver and offer — will not assign directly
+        const nearest = await findNearestDriverExcluding(sosDoc, []);
+        if (nearest) {
+          await offerSosToDriverAtomic(sosDoc, nearest.driver.driver_id);
+        }
       } catch (err) {
-        console.error('Assignment error (non-fatal):', err);
+        console.error('Offer error (non-fatal):', err);
       }
     })();
 
@@ -106,6 +120,8 @@ router.post('/status', async (req, res) => {
     if (!sos) return res.json('sos_not_found');
 
     if (sos.status === 'pending') return res.json({status: 'pending'});
+    if (sos.status === 'awaiting_driver')
+      return res.json({status: 'awaiting_driver'});
 
     if (sos.status === 'assigned') {
       const driverId = sos.assigned_driver_id;
@@ -155,27 +171,28 @@ router.post('/status', async (req, res) => {
 // --- Assignment helper -------------------------------------------------
 // Find nearest active driver with a live location and atomically assign
 async function assignNearestDriver(sos) {
+  // Deprecated in new flow; keep as fallback (no-op)
+  return null;
+}
+
+// Find nearest active driver not in excluded list. Returns {driver, live,
+// distKm} or null
+async function findNearestDriverExcluding(sos, excluded) {
   if (!sos || typeof sos.latitude !== 'number' ||
-      typeof sos.longitude !== 'number') {
+      typeof sos.longitude !== 'number')
     throw new Error('invalid_sos_coordinates');
-  }
 
-  // Fetch active drivers
   const drivers = await AmbulanceDriver.find({is_active: true}).lean();
-  if (!drivers || drivers.length === 0) {
-    // no drivers - leave SOS pending
-    return null;
-  }
+  if (!drivers || drivers.length === 0) return null;
 
-  // For each driver, get their latest live location
   const candidates = [];
   for (const d of drivers) {
+    if (excluded && excluded.includes(d.driver_id)) continue;
     try {
       const live =
           await AmbulanceLiveLocation.findOne({driver_id: d.driver_id}).lean();
       if (!live || live.latitude === undefined || live.longitude === undefined)
         continue;
-
       const distKm = haversineDistanceKm(
           sos.latitude, sos.longitude, live.latitude, live.longitude);
       candidates.push({driver: d, live, distKm});
@@ -187,59 +204,88 @@ async function assignNearestDriver(sos) {
   }
 
   if (candidates.length === 0) return null;
-
-  // pick nearest
   candidates.sort((a, b) => a.distKm - b.distKm);
-  const bestCandidate = candidates[0];
-  const best = bestCandidate.driver;
-  const bestLive = bestCandidate.live;
+  return candidates[0];
+}
 
-  // Try to compute realistic ETA via Google Maps Distance Matrix
-  let etaMinutes = 10;  // default fallback
+// Atomically offer an SOS to a driver by setting current_driver_candidate
+async function offerSosToDriverAtomic(sos, driverId) {
   try {
-    const computed = await getEtaFromGoogle(
-        bestLive.latitude, bestLive.longitude, sos.latitude, sos.longitude);
-    if (computed && Number.isFinite(computed) && computed > 0)
-      etaMinutes = computed;
-  } catch (err) {
-    console.error('Google Maps ETA error - falling back to default ETA:', err);
-  }
+    const updated = await SosRequest
+                        .findOneAndUpdate(
+                            {
+                              sos_id: sos.sos_id,
+                              status: 'awaiting_driver',
+                              current_driver_candidate: null
+                            },
+                            {
+                              $set: {
+                                current_driver_candidate: Number(driverId),
+                                request_sent_at: new Date()
+                              }
+                            },
+                            {new: true})
+                        .lean();
 
-  // atomic update: only assign if SOS still pending
-  const updated = await SosRequest
-                      .findOneAndUpdate(
-                          {sos_id: sos.sos_id, status: 'pending'}, {
-                            $set: {
-                              status: 'assigned',
-                              assigned_driver_id: best.driver_id,
-                              assigned_hospital_id: null,
-                              eta_minutes: etaMinutes
-                            }
-                          },
-                          {new: true})
-                      .lean();
-
-  // If we successfully transitioned the SOS to 'assigned', create an
-  // AmbulanceAssignment record exactly once (use upsert with $setOnInsert).
-  if (updated) {
-    try {
-      await AmbulanceAssignment.findOneAndUpdate(
-          {sos_id: sos.sos_id}, {
-            $setOnInsert: {
-              assignment_id: Date.now(),
-              sos_id: sos.sos_id,
-              driver_id: best.driver_id,
-              assigned_hospital_id: updated.assigned_hospital_id || null,
-              assigned_at: new Date()
-            }
-          },
-          {upsert: true, new: true});
-    } catch (err) {
-      console.error('Error creating AmbulanceAssignment record:', err);
+    if (updated) {
+      // schedule auto-reject if driver doesn't respond
+      clearOfferTimeoutForSos(sos.sos_id);
+      const to = setTimeout(() => {
+        // eslint-disable-next-line no-console
+        autoRejectCandidate(sos.sos_id, Number(driverId))
+            .catch((err) => console.error('Auto-reject error', err));
+      }, OFFER_TIMEOUT_MS);
+      _offerTimeouts.set(sos.sos_id, to);
     }
-  }
 
-  return updated;
+    return updated;
+  } catch (err) {
+    console.error('Error offering SOS to driver atomically:', err);
+    return null;
+  }
+}
+
+function clearOfferTimeoutForSos(sosId) {
+  try {
+    const t = _offerTimeouts.get(sosId);
+    if (t) {
+      clearTimeout(t);
+      _offerTimeouts.delete(sosId);
+    }
+  } catch (err) {
+    console.error('Error clearing offer timeout for sos', sosId, err);
+  }
+}
+
+async function autoRejectCandidate(sosId, driverId) {
+  // Atomically add driver to rejected_drivers and clear candidate if still the
+  // same
+  try {
+    const sos = await SosRequest.findOne({sos_id: sosId});
+    if (!sos) return;
+
+    // If current candidate is not the timed-out driver, nothing to do
+    if (sos.current_driver_candidate !== Number(driverId)) return;
+
+    // Add to rejected list and clear candidate
+    sos.rejected_drivers =
+        Array.isArray(sos.rejected_drivers) ? sos.rejected_drivers : [];
+    if (!sos.rejected_drivers.includes(Number(driverId)))
+      sos.rejected_drivers.push(Number(driverId));
+    sos.current_driver_candidate = null;
+    sos.request_sent_at = null;
+    await sos.save();
+    clearOfferTimeoutForSos(sosId);
+
+    // Try next candidate
+    const next =
+        await findNearestDriverExcluding(sos, sos.rejected_drivers || []);
+    if (next) {
+      await offerSosToDriverAtomic(sos, next.driver.driver_id);
+    }
+  } catch (err) {
+    console.error('Error in autoRejectCandidate:', err);
+  }
 }
 
 /**
@@ -318,7 +364,8 @@ async function pollPendingSosAndAssign() {
   _pendingSosPollRunning = true;
   try {
     const pendings =
-        await SosRequest.find({status: 'pending', assigned_driver_id: null})
+        await SosRequest
+            .find({status: 'awaiting_driver', current_driver_candidate: null})
             .lean();
     if (!pendings || pendings.length === 0) {
       _pendingSosPollRunning = false;
@@ -327,12 +374,12 @@ async function pollPendingSosAndAssign() {
 
     for (const s of pendings) {
       try {
-        // Re-run assignment logic; assignNearestDriver uses an atomic update
-        // so concurrent attempts won't create duplicate assignments.
-        await assignNearestDriver(s);
+        // Offer to nearest driver not already rejected
+        const next =
+            await findNearestDriverExcluding(s, s.rejected_drivers || []);
+        if (next) await offerSosToDriverAtomic(s, next.driver.driver_id);
       } catch (err) {
-        console.error(
-            'Error attempting assignment for pending SOS', s.sos_id, err);
+        console.error('Error attempting offer for pending SOS', s.sos_id, err);
       }
     }
   } catch (err) {
@@ -354,6 +401,11 @@ process.on('SIGINT', () => {
   clearInterval(_sosPollInterval);
   process.exit();
 });
+
+// Expose helper functions for driver route usage
+router.offerSosToDriverAtomic = offerSosToDriverAtomic;
+router.clearOfferTimeoutForSos = clearOfferTimeoutForSos;
+router.findNearestDriverExcluding = findNearestDriverExcluding;
 
 // POST /sos/cancel  route
 router.post('/cancel', async (req, res) => {
@@ -397,8 +449,9 @@ router.post('/cancel', async (req, res) => {
           {status: 'fail', message: 'not_request_owner'});
     }
 
-    // Only pending or assigned can be cancelled
-    if (sos.status === 'pending' || sos.status === 'assigned') {
+    // Only pending, awaiting_driver, or assigned can be cancelled
+    if (sos.status === 'pending' || sos.status === 'awaiting_driver' ||
+        sos.status === 'assigned') {
       sos.status = 'cancelled';
       sos.cancelled_before_pickup = true;
       await sos.save();
