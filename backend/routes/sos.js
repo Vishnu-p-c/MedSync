@@ -14,7 +14,7 @@ const ALLOWED_SEVERITIES =
     ['critical', 'severe', 'moderate', 'mild', 'unknown'];
 
 // In-memory state for offer timeouts: sos_id -> timeout handle
-const OFFER_TIMEOUT_MS = 15000;  // 15 seconds
+const OFFER_TIMEOUT_MS = 20000;  // 20 seconds
 const _offerTimeouts = new Map();
 
 // POST /sos/create
