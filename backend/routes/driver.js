@@ -221,7 +221,7 @@ router.post('/sos/check', async (req, res) => {
 
     const sos = await SosRequest
                     .findOne({
-                      status: 'awaiting_driver',
+                      status: 'awaiting_driver_response',
                       current_driver_candidate: driverIdNum
                     })
                     .lean();
@@ -274,14 +274,15 @@ router.post('/sos/accept', async (req, res) => {
                         .findOneAndUpdate(
                             {
                               sos_id: sosIdNum,
-                              status: 'awaiting_driver',
+                              status: 'awaiting_driver_response',
                               current_driver_candidate: driverIdNum
                             },
                             {
                               $set: {
                                 status: 'assigned',
                                 assigned_driver_id: driverIdNum,
-                                assigned_hospital_id: null
+                                assigned_hospital_id: null,
+                                assigned_at: new Date()
                               }
                             },
                             {new: true})
@@ -346,7 +347,7 @@ router.post('/sos/reject', async (req, res) => {
     const sos = await SosRequest.findOne({sos_id: sosIdNum});
     if (!sos)
       return res.status(404).json({status: 'fail', message: 'sos_not_found'});
-    if (sos.status !== 'awaiting_driver')
+    if (sos.status !== 'awaiting_driver_response')
       return res.status(409).json(
           {status: 'fail', message: 'sos_not_awaiting_driver'});
 
@@ -369,7 +370,7 @@ router.post('/sos/reject', async (req, res) => {
             .findOneAndUpdate(
                 {
                   sos_id: sosIdNum,
-                  status: 'awaiting_driver',
+                  status: 'awaiting_driver_response',
                   current_driver_candidate: driverIdNum
                 },
                 {
