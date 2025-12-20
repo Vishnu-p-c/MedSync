@@ -227,6 +227,19 @@ router.post('/sos/check', async (req, res) => {
                     .lean();
     if (!sos) return res.json({status: 'no_request'});
 
+    // Ensure the offer is still active (within offer timeout window). This
+    // prevents cases where the candidate rotated quickly and multiple
+    // drivers see 'incoming' simultaneously.
+    try {
+      if (sosRoutes && typeof sosRoutes.isOfferActiveForDriver === 'function') {
+        const active = sosRoutes.isOfferActiveForDriver(sos, driverIdNum);
+        if (!active) return res.json({status: 'no_request'});
+      }
+    } catch (e) {
+      console.error('Error validating offer activity for driver:', e);
+      return res.json({status: 'no_request'});
+    }
+
     const patient = await User.findOne({user_id: sos.patient_id}).lean();
     const patientName = patient ?
         ((patient.last_name && String(patient.last_name).trim()) ?

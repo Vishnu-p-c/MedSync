@@ -14,7 +14,8 @@ const ALLOWED_SEVERITIES =
     ['critical', 'severe', 'moderate', 'mild', 'unknown'];
 
 // In-memory state for offer timeouts: sos_id -> timeout handle
-const OFFER_TIMEOUT_MS = 3000;  // 3 seconds
+// Offer window for driver to accept/reject (milliseconds)
+const OFFER_TIMEOUT_MS = 20000;  // 20 seconds
 const _offerTimeouts = new Map();
 
 // POST /sos/create
@@ -316,6 +317,24 @@ function clearOfferTimeoutForSos(sosId) {
   }
 }
 
+// Check whether the current offer for a given SOS is active for a driver
+function isOfferActiveForDriver(sos, driverId) {
+  try {
+    if (!sos || sos.current_driver_candidate === undefined ||
+        sos.current_driver_candidate === null)
+      return false;
+    if (Number(sos.current_driver_candidate) !== Number(driverId)) return false;
+    if (!sos.request_sent_at) return false;
+    const sent = new Date(sos.request_sent_at).getTime();
+    if (isNaN(sent)) return false;
+    const now = Date.now();
+    return now - sent <= OFFER_TIMEOUT_MS;
+  } catch (err) {
+    console.error('Error in isOfferActiveForDriver:', err);
+    return false;
+  }
+}
+
 async function autoRejectCandidate(sosId, driverId) {
   // Atomically add driver to rejected_drivers and clear candidate if still the
   // same
@@ -474,6 +493,7 @@ router.offerSosToDriverAtomic = offerSosToDriverAtomic;
 router.clearOfferTimeoutForSos = clearOfferTimeoutForSos;
 router.findNearestDriverExcluding = findNearestDriverExcluding;
 router.buildCandidateQueue = buildCandidateQueue;
+router.isOfferActiveForDriver = isOfferActiveForDriver;
 
 // POST /sos/cancel  route
 router.post('/cancel', async (req, res) => {
@@ -517,8 +537,10 @@ router.post('/cancel', async (req, res) => {
           {status: 'fail', message: 'not_request_owner'});
     }
 
-    // Only pending, awaiting_driver, or assigned can be cancelled
+    // Only pending, awaiting_driver (legacy), awaiting_driver_response, or
+    // assigned can be cancelled
     if (sos.status === 'pending' || sos.status === 'awaiting_driver' ||
+        sos.status === 'awaiting_driver_response' ||
         sos.status === 'assigned') {
       sos.status = 'cancelled';
       sos.cancelled_before_pickup = true;
