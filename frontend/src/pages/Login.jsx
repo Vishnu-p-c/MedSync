@@ -3,8 +3,13 @@ import {useNavigate} from 'react-router-dom';
 import { loginUser } from '../api/authApi';
 
 import logo from "../assets/logo.svg";
+import DashboardLayout from "../layout/DashboardLayout";
+
+
+
 
 function Login() {
+  
   const [username,setUsername] = useState('');
   const [password,setPassword] = useState('');
   const[msg,setMsg] = useState('');
@@ -26,17 +31,14 @@ function Login() {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-400  " style={{ backgroundImage: "url('/blob-bg.svg')", height: '100vh', backgroundRepeat: 'no-repeat', backgroundSize: 'cover', filter: 'blur(0px)' }}>
-      
+    <DashboardLayout>
+    <div className="min-h-screen flex items-center justify-center bg-gray-300   " >
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-zinc-800 px-10 py-8 ">
         
         <div className="mb-8">
-          <div className="mb-4">
-            <img src={logo} 
-            alt="Logo"
-            className="h-26 w-auto mx-auto mb-4 " />
+          <div>
+            <img src={logo} alt="Logo" className="w-16 h-18 mx-auto mb-5" />
           </div>
-
          <h1 className="text-3xl font-extrabold text-slate-900 ">Login</h1>
         </div>
 
@@ -61,7 +63,7 @@ function Login() {
 
     </div>
 
-
+  </DashboardLayout>
   );
 }
 

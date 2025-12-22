@@ -1,6 +1,12 @@
+import DashboardLayout from "../layout/DashboardLayout";
+
+
+
 function AdminDashboard(){
     return(
-        <h1>Admin Dashboards</h1>
+        <DashboardLayout>
+            <h1>Admin Dashboards</h1>
+        </DashboardLayout>
     );
     
 }
