@@ -150,6 +150,25 @@ router.post('/status', async (req, res) => {
         sos.status === 'awaiting_driver_response')
       return res.json({status: 'awaiting_driver'});
 
+    if (sos.status === 'driver_arrived') {
+      const driverId = sos.assigned_driver_id;
+      let driver = null;
+      if (driverId !== undefined && driverId !== null) {
+        driver =
+            await AmbulanceDriver.findOne({driver_id: Number(driverId)}).lean();
+      }
+
+      return res.json({
+        status: 'driver_arrived',
+        driver_name: driver ? `${(driver.first_name || '').trim()} ${
+                                  (driver.last_name || '').trim()}`
+                                  .trim() :
+                              null,
+        vehicle_number: driver ? driver.vehicle_number : null,
+        eta: 0
+      });
+    }
+
     if (sos.status === 'assigned') {
       const driverId = sos.assigned_driver_id;
       let driver = null;
@@ -191,6 +210,61 @@ router.post('/status', async (req, res) => {
     return res.json({status: sos.status || 'unknown'});
   } catch (err) {
     console.error('Error fetching SOS status (POST):', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
+// POST /sos/driver-arrived
+// Body: { sos_id: Number, driver_id: Number }
+router.post('/driver-arrived', async (req, res) => {
+  try {
+    const {sos_id, driver_id} = req.body;
+
+    const missing = [];
+    if (sos_id === undefined || sos_id === null) missing.push('sos_id');
+    if (driver_id === undefined || driver_id === null)
+      missing.push('driver_id');
+    if (missing.length)
+      return res.status(400).json(
+          {status: 'fail', message: `missing_fields: ${missing.join(', ')}`});
+
+    const sosIdNum = Number(sos_id);
+    const driverIdNum = Number(driver_id);
+    if (isNaN(sosIdNum) || isNaN(driverIdNum))
+      return res.status(400).json(
+          {status: 'fail', message: 'sos_id_and_driver_id_must_be_numbers'});
+
+    // Ensure SOS exists
+    const sos = await SosRequest.findOne({sos_id: sosIdNum});
+    if (!sos) return res.json({status: 'sos_not_found'});
+
+    // Ensure SOS is currently assigned
+    if (sos.status !== 'assigned')
+      return res.json({status: 'fail', message: 'sos_not_assigned'});
+
+    // Ensure assigned driver matches
+    if (Number(sos.assigned_driver_id) !== Number(driverIdNum))
+      return res.json({status: 'fail', message: 'driver_mismatch'});
+
+    // Atomically update status and arrived_at
+    const updated = await SosRequest.findOneAndUpdate(
+        {sos_id: sosIdNum, status: 'assigned', assigned_driver_id: driverIdNum},
+        {$set: {status: 'driver_arrived', arrived_at: new Date()}},
+        {new: true});
+
+    if (!updated) {
+      // If update failed for concurrency reasons, return server error
+      return res.status(500).json({status: 'error', message: 'server_error'});
+    }
+
+    return res.json({
+      status: 'success',
+      message: 'driver_marked_arrived',
+      sos_id: sosIdNum,
+      driver_id: driverIdNum
+    });
+  } catch (err) {
+    console.error('Error in /sos/driver-arrived:', err);
     return res.status(500).json({status: 'error', message: 'server_error'});
   }
 });
