@@ -23,6 +23,7 @@ const sosRequestSchema = new mongoose.Schema({
   cancelled_before_pickup: {type: Boolean, default: false},
   assigned_driver_id: {type: Number, ref: 'AmbulanceDriver'},
   assigned_at: {type: Date, default: null},
+  arrived_at: {type: Date, default: null},
   assigned_hospital_id: {type: Number, ref: 'Hospital'},
   // New fields for driver acceptance workflow
   current_driver_candidate:
