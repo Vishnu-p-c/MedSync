@@ -213,6 +213,7 @@ router.post('/status', async (req, res) => {
         vehicle_number: driver ? driver.vehicle_number : null,
         assigned_hospital_id: sos.assigned_hospital_id || null,
         eta: sos.eta_minutes || 10,
+        severity: sos.severity || 'unknown',
         driver_latitude: live && live.latitude !== undefined ? live.latitude :
                                                                null,
         driver_longitude:
@@ -221,7 +222,8 @@ router.post('/status', async (req, res) => {
     }
 
     if (sos.status === 'cancelled' || sos.status === 'completed')
-      return res.json({status: sos.status});
+      return res.json(
+          {status: sos.status, severity: sos.severity || 'unknown'});
 
     return res.json({status: sos.status || 'unknown'});
   } catch (err) {
