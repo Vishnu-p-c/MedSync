@@ -180,7 +180,8 @@ router.post('/status', async (req, res) => {
         driver_latitude: live && live.latitude !== undefined ? live.latitude :
                                                                null,
         driver_longitude:
-            live && live.longitude !== undefined ? live.longitude : null
+            live && live.longitude !== undefined ? live.longitude : null,
+        severity: sos.severity || 'unknown'
       });
     }
 
