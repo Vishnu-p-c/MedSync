@@ -327,8 +327,10 @@ router.post('/severity', async (req, res) => {
       return res.json({status: 'error', message: 'unauthorized_driver'});
     }
 
-    // Allow update only when status is 'assigned' or 'pending'
-    if (!(sos.status === 'assigned' || sos.status === 'pending')) {
+    // Allow update only when status is 'assigned', 'pending' or
+    // 'driver_arrived'
+    if (!(sos.status === 'assigned' || sos.status === 'pending' ||
+          sos.status === 'driver_arrived')) {
       return res.json({status: 'error', message: 'cannot_update_severity'});
     }
 
