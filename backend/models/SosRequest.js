@@ -14,7 +14,7 @@ const sosRequestSchema = new mongoose.Schema({
     type: String,
     enum: [
       'pending', 'awaiting_driver', 'awaiting_driver_response', 'assigned',
-      'cancelled', 'completed'
+      'driver_arrived', 'cancelled', 'completed'
     ],
     default: 'pending'
   },
