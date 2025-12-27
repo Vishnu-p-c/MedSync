@@ -284,6 +284,67 @@ router.post('/driver-arrived', async (req, res) => {
   }
 });
 
+// POST /sos/severity
+// Body: { driver_id: Number, patient_id: Number, sos_id: Number, severity:
+// String }
+router.post('/severity', async (req, res) => {
+  try {
+    const {driver_id, patient_id, sos_id, severity} = req.body;
+
+    const missing = [];
+    if (driver_id === undefined || driver_id === null)
+      missing.push('driver_id');
+    if (patient_id === undefined || patient_id === null)
+      missing.push('patient_id');
+    if (sos_id === undefined || sos_id === null) missing.push('sos_id');
+    if (severity === undefined || severity === null) missing.push('severity');
+    if (missing.length)
+      return res.status(400).json(
+          {status: 'error', message: `missing_fields: ${missing.join(', ')}`});
+
+    const driverIdNum = Number(driver_id);
+    const patientIdNum = Number(patient_id);
+    const sosIdNum = Number(sos_id);
+    if (isNaN(driverIdNum) || isNaN(patientIdNum) || isNaN(sosIdNum))
+      return res.status(400).json(
+          {status: 'error', message: 'ids_must_be_numbers'});
+
+    const VALID_SEVERITIES = ['critical', 'severe', 'moderate', 'mild'];
+    if (!VALID_SEVERITIES.includes(String(severity)))
+      return res.status(400).json(
+          {status: 'error', message: 'invalid_severity'});
+
+    // Find SOS
+    const sos = await SosRequest.findOne({sos_id: sosIdNum});
+    if (!sos) return res.json({status: 'error', message: 'sos_not_found'});
+
+    // Verify ownership and assigned driver
+    if (Number(sos.patient_id) !== patientIdNum ||
+        Number(sos.assigned_driver_id) !== driverIdNum) {
+      return res.json({status: 'error', message: 'unauthorized_driver'});
+    }
+
+    // Allow update only when status is 'assigned' or 'pending'
+    if (!(sos.status === 'assigned' || sos.status === 'pending')) {
+      return res.json({status: 'error', message: 'cannot_update_severity'});
+    }
+
+    // Update severity and persist
+    sos.severity = String(severity);
+    await sos.save();
+
+    return res.json({
+      status: 'success',
+      message: 'severity_updated',
+      sos_id: sosIdNum,
+      severity: sos.severity
+    });
+  } catch (err) {
+    console.error('Error in /sos/severity:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
 // --- Assignment helper -------------------------------------------------
 // Find nearest active driver with a live location and atomically assign
 async function assignNearestDriver(sos) {
