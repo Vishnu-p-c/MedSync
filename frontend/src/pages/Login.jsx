@@ -31,7 +31,6 @@ function Login() {
 
 
   return (
-    <DashboardLayout>
     <div className="min-h-screen flex items-center justify-center bg-gray-300   " >
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-zinc-800 px-10 py-8 ">
         
@@ -62,8 +61,6 @@ function Login() {
       </div>
 
     </div>
-
-  </DashboardLayout>
   );
 }
 
