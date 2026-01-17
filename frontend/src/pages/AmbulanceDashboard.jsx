@@ -17,7 +17,7 @@ export default function AmbulanceDashboard() {
 
   <div className="flex flex-col md:flex-row gap-6">
         {/* LEFT CARD */}
-        <div className="flex-[2] bg-white rounded-xl shadow-lg p-6">
+        <div className="flex-2 bg-white rounded-xl shadow-lg p-6">
           <h2 className="text-xl font-semibold mb-4">
             Active Ambulance Drivers
           </h2>
