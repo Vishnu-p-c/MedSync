@@ -6,6 +6,8 @@ const SosRequest = require('../models/SosRequest');
 const User = require('../models/User');
 const Hospital = require('../models/Hospital');
 const sosRoutes = require('./sos');
+const https = require('https');
+const {URL} = require('url');
 
 // POST /driver/duty
 // Body: { driver_id: Number, on_duty: Boolean }
@@ -416,3 +418,152 @@ router.post('/sos/reject', async (req, res) => {
     return res.status(500).json({status: 'error', message: 'server_error'});
   }
 });
+
+// POST /driver/nearby
+// Body: { latitude: Number, longitude: Number }
+// Returns drivers within 10km radius with road distance from Google Maps
+router.post('/nearby', async (req, res) => {
+  try {
+    const {latitude, longitude} = req.body;
+
+    const missing = [];
+    if (latitude === undefined || latitude === null) missing.push('latitude');
+    if (longitude === undefined || longitude === null)
+      missing.push('longitude');
+    if (missing.length)
+      return res.status(400).json(
+          {status: 'fail', message: `missing_fields: ${missing.join(', ')}`});
+
+    const lat = Number(latitude);
+    const lon = Number(longitude);
+    if (isNaN(lat) || isNaN(lon))
+      return res.status(400).json(
+          {status: 'fail', message: 'invalid_coordinates'});
+
+    // Get all active (on-duty) drivers
+    const activeDrivers = await AmbulanceDriver.find({is_active: true}).lean();
+    if (!activeDrivers || activeDrivers.length === 0) {
+      return res.json({status: 'success', total_drivers: 0, drivers: null});
+    }
+
+    // Get live locations for active drivers
+    const driversWithLocation = [];
+    for (const driver of activeDrivers) {
+      try {
+        const liveLocation =
+            await AmbulanceLiveLocation.findOne({driver_id: driver.driver_id})
+                .lean();
+        if (liveLocation && liveLocation.latitude !== undefined &&
+            liveLocation.longitude !== undefined) {
+          driversWithLocation.push({
+            driver,
+            latitude: liveLocation.latitude,
+            longitude: liveLocation.longitude
+          });
+        }
+      } catch (err) {
+        console.error(
+            `Error fetching location for driver ${driver.driver_id}:`, err);
+      }
+    }
+
+    if (driversWithLocation.length === 0) {
+      return res.json({status: 'success', total_drivers: 0, drivers: null});
+    }
+
+    // Calculate distances using Google Distance Matrix API
+    const nearbyDrivers = [];
+    const RADIUS_KM = 10;
+
+    for (const driverData of driversWithLocation) {
+      try {
+        const distanceKm = await getDistanceFromGoogle(
+            lat, lon, driverData.latitude, driverData.longitude);
+
+        if (distanceKm <= RADIUS_KM) {
+          nearbyDrivers.push({
+            name: driverData.driver.name,
+            license_number: driverData.driver.license_number,
+            distance_km:
+                Math.round(distanceKm * 100) / 100  // Round to 2 decimal places
+          });
+        }
+      } catch (err) {
+        console.error(
+            `Error calculating distance for driver ${
+                driverData.driver.driver_id}:`,
+            err);
+        // Skip this driver if distance calculation fails
+      }
+    }
+
+    if (nearbyDrivers.length === 0) {
+      return res.json({status: 'success', total_drivers: 0, drivers: null});
+    }
+
+    // Sort by distance (nearest first)
+    nearbyDrivers.sort((a, b) => a.distance_km - b.distance_km);
+
+    return res.json({
+      status: 'success',
+      total_drivers: nearbyDrivers.length,
+      drivers: nearbyDrivers
+    });
+  } catch (err) {
+    console.error('Error in /driver/nearby:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
+/**
+ * Get road distance in km from Google Distance Matrix API
+ */
+async function getDistanceFromGoogle(originLat, originLon, destLat, destLon) {
+  const apiKey = process.env.API_MAP;
+  if (!apiKey) {
+    throw new Error('API_MAP not configured');
+  }
+
+  const params =
+      new URL('https://maps.googleapis.com/maps/api/distancematrix/json');
+  params.searchParams.append('origins', `${originLat},${originLon}`);
+  params.searchParams.append('destinations', `${destLat},${destLon}`);
+  params.searchParams.append('mode', 'driving');
+  params.searchParams.append('units', 'metric');
+  params.searchParams.append('key', apiKey);
+
+  const timeoutMs = 5000;
+
+  return new Promise((resolve, reject) => {
+    const req = https.get(params.toString(), {timeout: timeoutMs}, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.status !== 'OK' || !json.rows || !json.rows[0] ||
+              !json.rows[0].elements) {
+            return reject(new Error('No route in Google response'));
+          }
+          const elem = json.rows[0].elements[0];
+          if (!elem || elem.status !== 'OK' || !elem.distance ||
+              !elem.distance.value) {
+            return reject(new Error('No distance in Google response'));
+          }
+          const meters = Number(elem.distance.value);
+          const km = meters / 1000;
+          return resolve(km);
+        } catch (err) {
+          return reject(err);
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.on('timeout', () => {
+      req.destroy(new Error('Google Maps request timed out'));
+    });
+  });
+}
+
+module.exports = router;
