@@ -481,8 +481,14 @@ router.post('/nearby', async (req, res) => {
             lat, lon, driverData.latitude, driverData.longitude);
 
         if (distanceKm <= RADIUS_KM) {
+          // Construct full name from first_name and last_name
+          const fullName = `${(driverData.driver.first_name || '').trim()} ${
+                               (driverData.driver.last_name || '').trim()}`
+                               .trim() ||
+              'Unknown Driver';
+
           nearbyDrivers.push({
-            name: driverData.driver.name,
+            name: fullName,
             license_number: driverData.driver.license_number,
             distance_km:
                 Math.round(distanceKm * 100) / 100  // Round to 2 decimal places
