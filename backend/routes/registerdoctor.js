@@ -25,7 +25,9 @@ router.post('/', async (req, res) => {
       qualifications,
       multi_place,
       hospitals,
-      clinics
+      hospital,
+      clinics,
+      clinic
     } = req.body;
 
     const missing = [];
@@ -54,8 +56,12 @@ router.post('/', async (req, res) => {
     }
 
     // Normalize optional lists
-    const normalizedHospitals = Array.isArray(hospitals) ? hospitals : [];
-    const normalizedClinics = Array.isArray(clinics) ? clinics : [];
+    const normalizedHospitals = Array.isArray(hospitals) ?
+        hospitals :
+        (Array.isArray(hospital) ? hospital : []);
+    const normalizedClinics = Array.isArray(clinics) ?
+        clinics :
+        (Array.isArray(clinic) ? clinic : []);
 
     // If multi_place is true, allow hospital/clinic list to be optional per
     // request, but enforce at least one location to avoid a useless state.
