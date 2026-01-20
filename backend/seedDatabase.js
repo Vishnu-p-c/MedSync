@@ -383,7 +383,7 @@ const seedDatabase = async () => {
     // 4. Create Doctor Details
     await DoctorDetails.insertMany([{
       doctor_id: 2,
-      hospital_id: 1,
+      hospital_id: [1],
       first_name: 'Sarah',
       last_name: 'Johnson',
       mrn: 'MRN-0002',
