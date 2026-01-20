@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const doctorDetailsSchema = new mongoose.Schema({
   doctor_id: {type: Number, required: true, unique: true, ref: 'User'},
   // Doctor can consult in multiple hospitals; store as an array of hospital IDs
-  hospital_id: {type: [Number], ref: 'Hospital', default: []},
+  // Kept null by default (not set during registration)
+  hospital_id: {type: [Number], ref: 'Hospital', default: null},
   // Required doctor identity fields
   first_name: {type: String, required: true, trim: true, maxLength: 100},
   last_name: {type: String, trim: true, maxLength: 100},

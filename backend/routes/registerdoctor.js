@@ -8,8 +8,7 @@ const DoctorDetails = require('../models/Doctor');
 // Required (User): first_name, username, password, email, phone, date_of_birth,
 // gender Optional (User): last_name Required (DoctorDetails): mrn, department,
 // qualifications (array), multi_place (boolean) Optional (DoctorDetails):
-// hospital_id (array of numbers), hospitals (array of strings), clinics (array
-// of strings)
+// hospitals (array of strings), clinics (array of strings)
 router.post('/', async (req, res) => {
   try {
     const {
@@ -25,7 +24,6 @@ router.post('/', async (req, res) => {
       department,
       qualifications,
       multi_place,
-      hospital_id,
       hospitals,
       clinics
     } = req.body;
@@ -56,20 +54,19 @@ router.post('/', async (req, res) => {
     }
 
     // Normalize optional lists
-    const normalizedHospitalIds = Array.isArray(hospital_id) ? hospital_id : [];
     const normalizedHospitals = Array.isArray(hospitals) ? hospitals : [];
     const normalizedClinics = Array.isArray(clinics) ? clinics : [];
 
     // If multi_place is true, allow hospital/clinic list to be optional per
     // request, but enforce at least one location to avoid a useless state.
     if (multi_place === true) {
-      const hasAnyLocation = normalizedHospitalIds.length > 0 ||
+      const hasAnyLocation =
           normalizedHospitals.length > 0 || normalizedClinics.length > 0;
       if (!hasAnyLocation) {
         return res.status(400).json({
           status: 'fail',
           message: 'missing_fields',
-          missing: ['hospital_id_or_hospitals_or_clinics']
+          missing: ['hospitals_or_clinics']
         });
       }
     }
@@ -123,7 +120,6 @@ router.post('/', async (req, res) => {
       department,
       qualifications,
       multi_place,
-      hospital_id: normalizedHospitalIds,
       hospitals: normalizedHospitals,
       clinics: normalizedClinics,
       is_available: false,
