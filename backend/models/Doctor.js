@@ -14,6 +14,8 @@ const doctorDetailsSchema = new mongoose.Schema({
   last_attendance_time: {type: Date, default: null},
   // If true, doctor can consult in multiple places (hospital/clinic/both)
   multi_place: {type: Boolean, default: false},
+  // Qualifications of the doctor (e.g., MBBS, MD, MS)
+  qualifications: {type: [String], default: []},
   // Stores consultation locations (hospital or clinic). For hospital entries,
   // hospital_id can be provided.
   locations: {
