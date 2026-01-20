@@ -10,10 +10,12 @@ const doctorDetailsSchema = new mongoose.Schema({
   // Medical Record Number / Registration Number
   mrn: {type: String, required: true, trim: true, maxLength: 50},
   name: {type: String, maxLength: 100},
-  department: {type: String, maxLength: 100},
+  department: {type: String, required: true, trim: true, maxLength: 100},
   is_available: {type: Boolean, default: false},
   // Keep null by default until first attendance is logged
   last_attendance_time: {type: Date, default: null},
+  // Required by registration flow (whether doctor consults in multiple places)
+  multi_place: {type: Boolean, required: true, default: false},
   // Qualifications of the doctor (e.g., MBBS, MD, MS)
   qualifications: {type: [String], required: true, default: []},
   // Optional: hospital names (for display) if needed

@@ -21,8 +21,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     maxLength: 500,
     required: function() {
-      // address is optional for drivers, required for other roles
-      return this.role !== 'driver';
+      // address is required for patient/admin, optional for driver/doctor
+      return this.role === 'patient' || this.role === 'admin';
     }
   },
   latitude: {type: Number},

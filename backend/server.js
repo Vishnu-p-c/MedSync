@@ -5,6 +5,7 @@ require('dotenv').config();
 const loginRoute = require('./routes/login');
 const registerPatientRoute = require('./routes/registerpatient');
 const registerDriverRoute = require('./routes/registerdriver');
+const registerDoctorRoute = require('./routes/registerdoctor');
 const driverRoutes = require('./routes/driver');
 const sosRoutes = require('./routes/sos');
 
@@ -25,6 +26,7 @@ app.get('/', (req, res) => {
 app.use('/login', loginRoute);
 app.use('/registerpatient', registerPatientRoute);
 app.use('/registerdriver', registerDriverRoute);
+app.use('/registerdoctor', registerDoctorRoute);
 app.use('/driver', driverRoutes);
 app.use('/sos', sosRoutes);
 // app.use("/api/doctors", require("./routes/doctorRoutes"));
