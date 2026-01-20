@@ -386,6 +386,8 @@ const seedDatabase = async () => {
       hospital_id: 1,
       first_name: 'Sarah',
       last_name: 'Johnson',
+      mrn: 'MRN-0002',
+      qualifications: ['MBBS'],
       name: 'Dr. Sarah Johnson',
       department: 'Emergency',
       is_available: true,

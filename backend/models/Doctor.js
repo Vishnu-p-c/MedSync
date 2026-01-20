@@ -7,6 +7,8 @@ const doctorDetailsSchema = new mongoose.Schema({
   // Required doctor identity fields
   first_name: {type: String, required: true, trim: true, maxLength: 100},
   last_name: {type: String, trim: true, maxLength: 100},
+  // Medical Record Number / Registration Number
+  mrn: {type: String, required: true, trim: true, maxLength: 50},
   name: {type: String, maxLength: 100},
   department: {type: String, maxLength: 100},
   is_available: {type: Boolean, default: false},
@@ -15,7 +17,7 @@ const doctorDetailsSchema = new mongoose.Schema({
   // If true, doctor can consult in multiple places (hospital/clinic/both)
   multi_place: {type: Boolean, default: false},
   // Qualifications of the doctor (e.g., MBBS, MD, MS)
-  qualifications: {type: [String], default: []},
+  qualifications: {type: [String], required: true, default: []},
   // Stores consultation locations (hospital or clinic). For hospital entries,
   // hospital_id can be provided.
   locations: {
