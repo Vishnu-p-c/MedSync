@@ -384,6 +384,8 @@ const seedDatabase = async () => {
     await DoctorDetails.insertMany([{
       doctor_id: 2,
       hospital_id: 1,
+      first_name: 'Sarah',
+      last_name: 'Johnson',
       name: 'Dr. Sarah Johnson',
       department: 'Emergency',
       is_available: true,
