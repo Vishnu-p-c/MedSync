@@ -1,3 +1,5 @@
+import DashboardLayout from "../layout/DashboardLayout";
+
 export default function AmbulanceDashboard() {
   const drivers = [
     { name: "Driver Sharma", status: "Active" },
@@ -9,7 +11,8 @@ export default function AmbulanceDashboard() {
   const pendingDrivers = ["Driver Name", "Driver Name", "Driver Name"];
 
   return (
-    <div className="min-h-screen bg-gray-100 p-10 font-sans">
+    <DashboardLayout>
+      <div className="bg-gray-100 p-10 font-sans">
       {/* Title */}
       <h1 className="text-3xl font-semibold mb-6">
         Ambulance Management
@@ -88,7 +91,8 @@ export default function AmbulanceDashboard() {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
 
