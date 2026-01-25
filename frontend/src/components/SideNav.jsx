@@ -1,8 +1,19 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 function SideNav() {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
+
+  const handleLogout = () => {
+    // Clear authentication data
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userName');
+    // Redirect to login
+    navigate('/login');
+  };
 
   return (
     <aside className="w-64 bg-[#2c3e50] text-white flex flex-col h-screen fixed left-0 top-0">
@@ -109,6 +120,16 @@ function SideNav() {
           </svg>
           <span>Settings</span>
         </a>
+
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-red-600 transition-colors w-full mt-4"
+        >
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd"/>
+          </svg>
+          <span>Logout</span>
+        </button>
       </nav>
     </aside>
   );
