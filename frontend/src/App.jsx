@@ -7,6 +7,8 @@ import Doctors from "./pages/Doctors";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+
   return (
     <BrowserRouter>
       <Routes>
@@ -14,9 +16,11 @@ function App() {
         <Route 
           path="/" 
           element={
-            <ProtectedRoute>
+            isAuthenticated ? (
               <Navigate to="/admin-dashboard" replace />
-            </ProtectedRoute>
+            ) : (
+              <Navigate to="/login" replace />
+            )
           } 
         />
         <Route 
@@ -41,6 +45,17 @@ function App() {
             <ProtectedRoute>
               <Doctors />
             </ProtectedRoute>
+          } 
+        />
+        {/* Catch all unmatched routes */}
+        <Route 
+          path="*" 
+          element={
+            isAuthenticated ? (
+              <Navigate to="/admin-dashboard" replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
           } 
         />
       </Routes>
