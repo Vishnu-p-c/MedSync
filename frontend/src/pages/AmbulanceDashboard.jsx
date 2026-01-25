@@ -51,6 +51,8 @@ export default function AmbulanceDashboard() {
                   ${
                     d.status === "Active"
                       ? "bg-green-100 text-green-700"
+                      : d.status === "Inactive"
+                      ? "bg-red-100 text-red-700"
                       : "bg-gray-200 text-gray-600"
                   }
                 `}
@@ -63,33 +65,7 @@ export default function AmbulanceDashboard() {
           ))}
         </div>
 
-        {/* RIGHT CARD */}
-        <div className="flex-1 bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">
-            Pending Driver Approvals
-          </h2>
-
-          {pendingDrivers.map((name, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between py-4 border-b"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-gray-300"></div>
-                <span>{name}</span>
-              </div>
-
-              <div className="flex gap-2">
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                  Approve
-                </button>
-                <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm">
-                  Reject
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* RIGHT CARD removed as requested */}
       </div>
       </div>
     </DashboardLayout>
