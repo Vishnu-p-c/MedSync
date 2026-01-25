@@ -1,17 +1,63 @@
 // App.jsx
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import AmbulanceDashboard from "./pages/AmbulanceDashboard";
+import Doctors from "./pages/Doctors";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/ambulance-dashboard" element={<AmbulanceDashboard />} />
-
+        <Route path="/login" element={<Login />} />
+        <Route 
+          path="/" 
+          element={
+            isAuthenticated ? (
+              <Navigate to="/admin-dashboard" replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } 
+        />
+        <Route 
+          path="/admin-dashboard" 
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/ambulance-dashboard" 
+          element={
+            <ProtectedRoute>
+              <AmbulanceDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/doctors" 
+          element={
+            <ProtectedRoute>
+              <Doctors />
+            </ProtectedRoute>
+          } 
+        />
+        {/* Catch all unmatched routes */}
+        <Route 
+          path="*" 
+          element={
+            isAuthenticated ? (
+              <Navigate to="/admin-dashboard" replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } 
+        />
       </Routes>
     </BrowserRouter>
   );

@@ -5,6 +5,7 @@ const ambulanceAssignmentSchema = new mongoose.Schema({
   sos_id: {type: Number, ref: 'SosRequest'},
   driver_id: {type: Number, ref: 'AmbulanceDriver'},
   assigned_hospital_id: {type: Number, ref: 'Hospital'},
+  assigned_at: {type: Date},
   route_eta: {type: Number},
   is_completed: {type: Boolean, default: false},
   completed_at: {type: Date}
