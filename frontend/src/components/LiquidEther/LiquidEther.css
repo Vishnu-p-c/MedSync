@@ -1,7 +1,6 @@
-.liquid-ether-container {
-  position: relative;
-  overflow: hidden;
+/* LiquidEther Canvas Styles */
+canvas {
+  display: block;
   width: 100%;
   height: 100%;
-  touch-action: none;
 }
