@@ -8,6 +8,7 @@ const registerDriverRoute = require('./routes/registerdriver');
 const registerDoctorRoute = require('./routes/registerdoctor');
 const driverRoutes = require('./routes/driver');
 const sosRoutes = require('./routes/sos');
+const hospitalRoutes = require('./routes/hospital');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/registerdriver', registerDriverRoute);
 app.use('/registerdoctor', registerDoctorRoute);
 app.use('/driver', driverRoutes);
 app.use('/sos', sosRoutes);
+app.use('/hospital', hospitalRoutes);
 // app.use("/api/doctors", require("./routes/doctorRoutes"));
 
 app.listen(5000, () => console.log('Server running on port 5000'));

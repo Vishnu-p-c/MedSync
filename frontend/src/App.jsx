@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import AmbulanceDashboard from "./pages/AmbulanceDashboard";
 import Doctors from "./pages/Doctors";
+import Equipment from "./pages/Equipment";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -44,6 +45,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Doctors />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/equipment" 
+          element={
+            <ProtectedRoute>
+              <Equipment />
             </ProtectedRoute>
           } 
         />
