@@ -40,9 +40,9 @@ function Login() {
 
   return (
     <LiquidEtherBackground>
-    <div className="min-h-screen flex items-center justify-center" >
+    <div className="min-h-screen flex items-center justify-center p-4" >
       <GlassSurface
-        className="w-full max-w-md px-10 py-8"
+        className="w-full max-w-md px-6 sm:px-10 py-6 sm:py-8"
         borderRadius={24}
         borderWidth={0.07}
         blur={11}
@@ -58,11 +58,11 @@ function Login() {
         mixBlendMode="difference"
       >
         
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <div>
-            <img src={logo} alt="Logo" className="w-28 h-28 object-contain mx-auto mb-5" />
+            <img src={logo} alt="Logo" className="w-20 h-20 sm:w-28 sm:h-28 object-contain mx-auto mb-4 sm:mb-5" />
           </div>
-         <h1 className="text-3xl font-extrabold text-white">Login</h1>
+         <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Login</h1>
         </div>
 
 
@@ -70,15 +70,15 @@ function Login() {
           <div className="flex flex-col ">
             <label className="text-sm text-white/70 mb-1">  
             UserName</label>
-            <input value={username} onChange={e => setUsername(e.target.value)} type="text" placeholder="Enter UserName" className="border-b border-white/25 bg-transparent py-1 focus:outline-none focus:border-white/60 text-white placeholder-white/40" /> 
+            <input value={username} onChange={e => setUsername(e.target.value)} type="text" placeholder="Enter UserName" className="border-b border-white/25 bg-transparent py-1 focus:outline-none focus:border-white/60 text-white placeholder-white/40 text-sm sm:text-base" /> 
             <span className='text-sm text-red-500 py-1'>{msg}</span>  
           </div>
 
           <div className="flex flex-col"> 
             <label className="text-sm text-white/70 mb-1">Password</label>
-            <input value={password} onChange={e => setPassword(e.target.value)} type="password" name="pass" placeholder="Enter password" className="border-b border-white/25 bg-transparent py-1 focus:outline-none focus:border-white/60 text-white placeholder-white/40" />
+            <input value={password} onChange={e => setPassword(e.target.value)} type="password" name="pass" placeholder="Enter password" className="border-b border-white/25 bg-transparent py-1 focus:outline-none focus:border-white/60 text-white placeholder-white/40 text-sm sm:text-base" />
           </div>
-          <button type="submit" className="mt-4 w-full py-3 bg-white/90 rounded-full text-black font-semibold hover:bg-white active:scale-[0.98] transition-transform">Login</button>
+          <button type="submit" className="mt-4 w-full py-2.5 sm:py-3 bg-white/90 rounded-full text-black font-semibold hover:bg-white active:scale-[0.98] transition-transform text-sm sm:text-base">Login</button>
 
         </form>
 

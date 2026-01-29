@@ -15,6 +15,7 @@ const Equipment = () => {
   const [equipmentList, setEquipmentList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Fetch equipment data from API
   useEffect(() => {
@@ -141,26 +142,41 @@ const Equipment = () => {
 
   return (
     <div className="flex min-h-screen bg-[#030B12]">
-      <SideNav />
+      <SideNav isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <main className="flex-1 ml-64 p-8 relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Equipment Status</h1>
-            <p className="text-white/60">Monitor and manage hospital equipment inventory</p>
-          </div>
-          <button className="flex items-center gap-2 px-5 py-3 bg-white/90 rounded-full text-black font-semibold hover:bg-white active:scale-[0.98] transition-transform">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      <main className="flex-1 lg:ml-64 relative z-10">
+        {/* Mobile Header */}
+        <div className="lg:hidden flex items-center justify-between p-4 bg-[#030B12] border-b border-white/10">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
-            Add Equipment
           </button>
+          <h1 className="text-lg font-semibold text-white">Equipment</h1>
+          <div className="w-10"></div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Equipment Status</h1>
+              <p className="text-white/60 text-sm sm:text-base">Monitor and manage hospital equipment inventory</p>
+            </div>
+            <button className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-white/90 rounded-full text-black font-semibold hover:bg-white active:scale-[0.98] transition-transform text-sm sm:text-base">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Equipment
+            </button>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           {Object.entries(statusCounts).map(([status, count]) => (
             status !== 'All' && (
               <GlassSurface
@@ -174,8 +190,8 @@ const Equipment = () => {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white/60 text-sm">{status}</p>
-                    <p className="text-2xl font-bold text-white">{count}</p>
+                    <p className="text-white/60 text-xs sm:text-sm">{status}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-white">{count}</p>
                   </div>
                   <div className={`w-3 h-3 rounded-full ${
                     status === 'Available' ? 'bg-green-400' :
@@ -196,7 +212,7 @@ const Equipment = () => {
           brightness={50}
           blur={11}
           borderRadius={16}
-          className="p-6 mb-6"
+          className="p-4 sm:p-6 mb-4 sm:mb-6"
         >
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             {/* Search */}
@@ -379,6 +395,7 @@ const Equipment = () => {
             )}
           </div>
         </GlassSurface>
+        </div>
       </main>
     </div>
   );

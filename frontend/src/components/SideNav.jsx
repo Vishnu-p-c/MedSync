@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-function SideNav() {
+function SideNav({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
@@ -15,20 +16,51 @@ function SideNav() {
     navigate('/login');
   };
 
-  return (
-    <aside className="w-64 bg-[#2c3e50] text-white flex flex-col h-screen fixed left-0 top-0">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10 3.5a1.5 1.5 0 013 0V4a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-.5a1.5 1.5 0 000 3h.5a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-.5a1.5 1.5 0 00-3 0v.5a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 00-1-1h-.5a1.5 1.5 0 010-3H4a1 1 0 001-1V6a1 1 0 011-1h3a1 1 0 001-1v-.5z"/>
-          </svg>
-        </div>
-        <span className="text-xl font-bold">MedSync</span>
-      </div>
+  const handleNavClick = () => {
+    // Close sidebar on mobile after navigation
+    if (onClose) onClose();
+  };
 
-      <nav className="flex-1 px-3 py-4">
+  return (
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside className={`
+        w-64 bg-[#2c3e50] text-white flex flex-col h-screen fixed left-0 top-0 z-50
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0
+      `}>
+        {/* Close button for mobile */}
+        <button 
+          onClick={onClose}
+          className="lg:hidden absolute top-4 right-4 p-2 text-white/70 hover:text-white"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <div className="p-6 flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 3.5a1.5 1.5 0 013 0V4a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-.5a1.5 1.5 0 000 3h.5a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-.5a1.5 1.5 0 00-3 0v.5a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 00-1-1h-.5a1.5 1.5 0 010-3H4a1 1 0 001-1V6a1 1 0 011-1h3a1 1 0 001-1v-.5z"/>
+            </svg>
+          </div>
+          <span className="text-xl font-bold">MedSync</span>
+        </div>
+
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
         <a 
-          href="/admin-dashboard" 
+          href="/admin-dashboard"
+          onClick={handleNavClick}
           className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mb-1 ${
             currentPath === '/admin-dashboard' || currentPath === '/' 
               ? 'bg-blue-600 text-white' 
@@ -42,7 +74,8 @@ function SideNav() {
         </a>
 
         <a 
-          href="/doctors" 
+          href="/doctors"
+          onClick={handleNavClick}
           className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mb-1 ${
             currentPath === '/doctors' 
               ? 'bg-blue-600 text-white' 
@@ -56,7 +89,8 @@ function SideNav() {
         </a>
 
         <a 
-          href="#" 
+          href="#"
+          onClick={handleNavClick}
           className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors mb-1"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -66,7 +100,8 @@ function SideNav() {
         </a>
 
         <a 
-          href="/ambulance-dashboard" 
+          href="/ambulance-dashboard"
+          onClick={handleNavClick}
           className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mb-1 ${
             currentPath === '/ambulance-dashboard' 
               ? 'bg-blue-600 text-white' 
@@ -81,11 +116,12 @@ function SideNav() {
         </a>
 
         <a 
-          href="/equipment" 
+          href="/equipment"
+          onClick={handleNavClick}
           className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mb-1 ${
             currentPath === '/equipment' 
-              ? 'bg-white/20 text-white backdrop-blur-sm' 
-              : 'text-white/70 hover:bg-white/10 hover:backdrop-blur-sm'
+              ? 'bg-blue-600 text-white' 
+              : 'text-slate-300 hover:bg-slate-700'
           }`}
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -95,7 +131,8 @@ function SideNav() {
         </a>
 
         <a 
-          href="#" 
+          href="#"
+          onClick={handleNavClick}
           className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors mb-1"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -105,7 +142,8 @@ function SideNav() {
         </a>
 
         <a 
-          href="#" 
+          href="#"
+          onClick={handleNavClick}
           className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors mb-1"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -116,7 +154,8 @@ function SideNav() {
         </a>
 
         <a 
-          href="#" 
+          href="#"
+          onClick={handleNavClick}
           className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -136,6 +175,7 @@ function SideNav() {
         </button>
       </nav>
     </aside>
+    </>
   );
 }
 
