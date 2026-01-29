@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+/* Global styles to prevent horizontal scroll and zoom issues */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  min-height: 100%;
+  background-color: #030B12;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+}

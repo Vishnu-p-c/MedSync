@@ -66,11 +66,11 @@ const Doctors = () => {
   ];
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="min-h-screen w-full bg-slate-100 overflow-x-hidden">
       <SideNav isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-64 flex flex-col">
+      <div className="min-h-screen w-full lg:pl-64 flex flex-col">
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center justify-between p-4 bg-[#2c3e50] text-white">
           <button
@@ -138,13 +138,13 @@ const Doctors = () => {
 
             {/* Table */}
             <div className="overflow-x-auto -mx-4 sm:mx-0">
-              <table className="w-full min-w-[500px]">
+              <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm sm:text-base">Name</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm sm:text-base hidden sm:table-cell">Department</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm sm:text-base">Status</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm sm:text-base hidden md:table-cell">Last Check-in</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm sm:text-base">Department</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm sm:text-base">Last Check-in</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -155,13 +155,9 @@ const Doctors = () => {
                           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full flex items-center justify-center text-lg sm:text-xl">
                             {doctor.avatar}
                           </div>
-                          <div>
-                            <span className="font-medium text-gray-800 text-sm sm:text-base block">{doctor.name}</span>
-                            <span className="text-xs text-gray-500 sm:hidden">{doctor.department}</span>
-                          </div>
+                          <span className="font-medium text-gray-800 text-sm sm:text-base">{doctor.name}</span>
                         </div>
                       </td>
-                      <td className="py-3 sm:py-4 px-4 text-gray-600 text-sm sm:text-base hidden sm:table-cell">{doctor.department}</td>
                       <td className="py-3 sm:py-4 px-4">
                         <span
                           className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold ${
@@ -175,7 +171,8 @@ const Doctors = () => {
                           {doctor.status}
                         </span>
                       </td>
-                      <td className="py-3 sm:py-4 px-4 text-gray-600 text-sm sm:text-base hidden md:table-cell">{doctor.lastCheckIn}</td>
+                      <td className="py-3 sm:py-4 px-4 text-gray-600 text-sm sm:text-base">{doctor.department}</td>
+                      <td className="py-3 sm:py-4 px-4 text-gray-600 text-sm sm:text-base">{doctor.lastCheckIn}</td>
                     </tr>
                   ))}
                 </tbody>

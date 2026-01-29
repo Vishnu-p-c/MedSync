@@ -141,11 +141,11 @@ const Equipment = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#030B12]">
+    <div className="min-h-screen w-full bg-[#030B12] overflow-x-hidden">
       <SideNav isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 relative z-10">
+      <main className="min-h-screen w-full lg:pl-64 relative z-10">
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center justify-between p-4 bg-[#030B12] border-b border-white/10">
           <button
