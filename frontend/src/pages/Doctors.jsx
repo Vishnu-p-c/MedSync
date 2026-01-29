@@ -137,7 +137,14 @@ const Doctors = () => {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div 
+              className="-mx-4 sm:mx-0"
+              style={{ 
+                overflowX: 'auto', 
+                WebkitOverflowScrolling: 'touch',
+                overflowY: 'visible'
+              }}
+            >
               <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-gray-200">
