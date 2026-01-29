@@ -265,9 +265,9 @@ const Equipment = () => {
           brightness={50}
           blur={11}
           borderRadius={16}
-          className="overflow-hidden"
+          className=""
         >
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
             {/* Loading State */}
             {loading && (
               <div className="p-8 text-center text-white/60">
@@ -312,13 +312,13 @@ const Equipment = () => {
             {/* Equipment Table - Only show when not loading and no error */}
             {!loading && !error && (
               <>
-                <table className="w-full">
+                <table className="w-full min-w-[600px]">
                   <thead>
                     <tr className="border-b border-white/10">
-                      <th className="text-left p-4 text-white/60 font-medium">Equipment Name</th>
-                      <th className="text-left p-4 text-white/60 font-medium">Status</th>
-                      <th className="text-left p-4 text-white/60 font-medium">Last Checked</th>
-                      <th className="text-right p-4 text-white/60 font-medium">Actions</th>
+                      <th className="text-left p-4 text-white/60 font-medium text-sm sm:text-base">Equipment Name</th>
+                      <th className="text-left p-4 text-white/60 font-medium text-sm sm:text-base">Status</th>
+                      <th className="text-left p-4 text-white/60 font-medium text-sm sm:text-base">Last Checked</th>
+                      <th className="text-right p-4 text-white/60 font-medium text-sm sm:text-base">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -329,29 +329,29 @@ const Equipment = () => {
                           index === filteredEquipment.length - 1 ? 'border-b-0' : ''
                         }`}
                       >
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center p-1.5">
+                        <td className="p-3 sm:p-4">
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/10 rounded-lg flex items-center justify-center p-1 sm:p-1.5">
                               <img
                                 src={getEquipmentIcon(item.name)}
                                 alt={item.name}
                                 className="w-full h-full object-contain"
                               />
                             </div>
-                            <span className="text-white font-medium">{item.name}</span>
+                            <span className="text-white font-medium text-sm sm:text-base">{item.name}</span>
                           </div>
                         </td>
-                        <td className="p-4">
+                        <td className="p-3 sm:p-4">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                            className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
                               item.status
                             )}`}
                           >
                             {item.status}
                           </span>
                         </td>
-                        <td className="p-4 text-white/60">{formatDate(item.lastChecked)}</td>
-                        <td className="p-4 text-right">
+                        <td className="p-3 sm:p-4 text-white/60 text-sm sm:text-base">{formatDate(item.lastChecked)}</td>
+                        <td className="p-3 sm:p-4 text-right">
                           <button className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60 hover:text-white">
                             <svg
                               className="w-5 h-5"
