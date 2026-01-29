@@ -26,7 +26,14 @@ export default function AmbulanceDashboard() {
           </h2>
 
           {/* Table Container with horizontal scroll on mobile */}
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div 
+            className="-mx-4 sm:mx-0"
+            style={{ 
+              overflowX: 'auto', 
+              WebkitOverflowScrolling: 'touch',
+              overflowY: 'visible'
+            }}
+          >
             <div className="min-w-[550px] px-4 sm:px-0">
               {/* Table Header */}
               <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr] text-gray-500 font-medium border-b pb-3 text-sm sm:text-base">

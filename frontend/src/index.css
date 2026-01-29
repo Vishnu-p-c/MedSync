@@ -13,3 +13,22 @@ html, body {
   min-height: 100vh;
   overflow-x: hidden;
 }
+
+/* iOS Safari horizontal scroll fix */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* Ensure tables scroll properly on iOS */
+table {
+  display: table;
+}
+
+/* Fix for iOS touch scrolling */
+@supports (-webkit-touch-callout: none) {
+  .overflow-x-auto {
+    overflow-x: scroll;
+  }
+}

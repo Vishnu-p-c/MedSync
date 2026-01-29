@@ -267,7 +267,14 @@ const Equipment = () => {
           borderRadius={16}
           className=""
         >
-          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+          <div 
+            className="-mx-4 sm:mx-0 px-4 sm:px-0"
+            style={{ 
+              overflowX: 'auto', 
+              WebkitOverflowScrolling: 'touch',
+              overflowY: 'visible'
+            }}
+          >
             {/* Loading State */}
             {loading && (
               <div className="p-8 text-center text-white/60">
