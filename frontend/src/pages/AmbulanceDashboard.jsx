@@ -27,13 +27,13 @@ export default function AmbulanceDashboard() {
 
           {/* Table Container with horizontal scroll on mobile */}
           <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <div className="min-w-[500px] px-4 sm:px-0">
+            <div className="min-w-[550px] px-4 sm:px-0">
               {/* Table Header */}
               <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr] text-gray-500 font-medium border-b pb-3 text-sm sm:text-base">
                 <span>Name</span>
                 <span>Vehicle #</span>
                 <span>Status</span>
-                <span className="hidden sm:block">Current Assign</span>
+                <span>Current Assign</span>
               </div>
 
               {/* Rows */}
@@ -51,8 +51,7 @@ export default function AmbulanceDashboard() {
 
                   <span
                     className={`px-2 sm:px-4 py-1 rounded-full text-xs sm:text-sm w-fit
-                      ${
-                        d.status === "Active"
+                      ${d.status === "Active"
                           ? "bg-green-100 text-green-700"
                           : d.status === "Inactive"
                           ? "bg-red-100 text-red-700"
@@ -63,7 +62,7 @@ export default function AmbulanceDashboard() {
                     {d.status}
                   </span>
 
-                  <span className="hidden sm:block truncate">Current Assign</span>
+                  <span className="truncate">Current Assign</span>
                 </div>
               ))}
             </div>

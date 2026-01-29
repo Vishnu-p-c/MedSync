@@ -26,7 +26,7 @@ export default function LiquidEtherBackground({ children }) {
   }, []);
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen w-full overflow-x-hidden">
       <div className="fixed inset-0 -z-10">
         {/* Base backdrop (LiquidEther output is transparent where calm) */}
         <div
