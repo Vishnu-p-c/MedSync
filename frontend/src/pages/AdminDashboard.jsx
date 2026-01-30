@@ -1,10 +1,31 @@
 import { useState, useEffect } from "react";
 import SideNav from "../components/SideNav";
 import GlassSurface from "../components/GlassSurface/GlassSurface";
+import axiosInstance from "../utils/axiosInstance";
 
 function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeAmbulances, setActiveAmbulances] = useState(0);
+  const [ambulanceLoading, setAmbulanceLoading] = useState(true);
   const userName = localStorage.getItem('userName') || 'Admin';
+
+  // Fetch active ambulance count
+  useEffect(() => {
+    const fetchActiveAmbulances = async () => {
+      try {
+        const response = await axiosInstance.get('/driver/active-count');
+        if (response.data.status === 'success') {
+          setActiveAmbulances(response.data.activeDrivers);
+        }
+      } catch (error) {
+        console.error('Error fetching active ambulances:', error);
+      } finally {
+        setAmbulanceLoading(false);
+      }
+    };
+
+    fetchActiveAmbulances();
+  }, []);
 
   // Sample data - replace with API calls
   const dashboardData = {
@@ -172,8 +193,12 @@ function AdminDashboard() {
             >
               <p className="text-white/60 text-sm mb-2">Active Ambulances</p>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-3xl font-bold text-yellow-400">{dashboardData.activeAmbulances}</span>
-                <span className="text-white/60">En Route</span>
+                {ambulanceLoading ? (
+                  <span className="text-3xl font-bold text-yellow-400">...</span>
+                ) : (
+                  <span className="text-3xl font-bold text-yellow-400">{activeAmbulances}</span>
+                )}
+                <span className="text-white/60">On Duty</span>
               </div>
               {/* Mini Map Placeholder */}
               <div className="bg-blue-900/30 rounded-lg h-20 flex items-center justify-center relative overflow-hidden">
@@ -187,7 +212,7 @@ function AdminDashboard() {
                   </svg>
                 </div>
                 <div className="bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-full z-10">
-                  {dashboardData.activeAmbulances}
+                  {ambulanceLoading ? '...' : activeAmbulances}
                 </div>
               </div>
             </GlassSurface>
