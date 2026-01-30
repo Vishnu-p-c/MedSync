@@ -1,6 +1,6 @@
 const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
-const User = require('../models/user');
+const User = require('../models/User');
 
 // Helper to get next appointment_id
 const getNextAppointmentId = async () => {
