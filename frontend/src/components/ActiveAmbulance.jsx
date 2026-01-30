@@ -1,16 +1,16 @@
 
 import { useEffect, useState } from "react";
+import axiosInstance from "../utils/axiosInstance";
 
 function ActiveAmbulance() {
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/admin/ambulance/active-count")
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === "success") {
-          setCount(data.activeDrivers);
+    axiosInstance.get("/driver/active-count")
+      .then(res => {
+        if (res.data.status === "success") {
+          setCount(res.data.activeDrivers);
         }
         setLoading(false);
       })

@@ -572,4 +572,19 @@ async function getDistanceFromGoogle(originLat, originLon, destLat, destLon) {
   });
 }
 
+// GET /driver/active-count
+// Returns the count of active (on-duty) ambulance drivers
+router.get('/active-count', async (req, res) => {
+  try {
+    const activeCount = await AmbulanceDriver.countDocuments({is_active: true});
+    return res.json({
+      status: 'success',
+      activeDrivers: activeCount
+    });
+  } catch (err) {
+    console.error('Error in /driver/active-count:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
 module.exports = router;
