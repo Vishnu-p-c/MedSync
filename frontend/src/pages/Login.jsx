@@ -39,7 +39,7 @@ function Login() {
 
 
   return (
-    <LiquidEtherBackground>
+  
     <div className="min-h-screen flex items-center justify-center p-4" >
       <GlassSurface
         className="w-full max-w-md px-6 sm:px-10 py-6 sm:py-8"
@@ -85,7 +85,7 @@ function Login() {
       </GlassSurface>
 
     </div>
-    </LiquidEtherBackground>
+
   );
 }
 
