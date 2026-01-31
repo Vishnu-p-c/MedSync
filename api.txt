@@ -724,6 +724,174 @@ Note: Distance is calculated using the Haversine formula. The nearest_location
       shows the closest hospital OR clinic where the doctor consults.
 
 ================================================================================
+9. HOSPITAL & CLINIC MANAGEMENT
+================================================================================
+
+POST /hospital/register
+--------------------------------------------------------------------------------
+Description: Register a new hospital.
+
+Request Body:
+{
+  "name": "string (required)",
+  "address": "string (optional)",
+  "latitude": number (optional),
+  "longitude": number (optional),
+  "rush_level": "low | medium | high | critical" (optional, defaults to "low")
+}
+
+Success Response:
+{
+  "status": "success",
+  "hospital_id": 3,
+  "name": "Metro Hospital",
+  "address": "789 Health Avenue",
+  "latitude": 40.7300,
+  "longitude": -74.0050,
+  "rush_level": "low"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["name"] }
+{ "status": "fail", "message": "hospital_exists", "existing_hospital_id": 1 }
+
+--------------------------------------------------------------------------------
+
+POST /hospital/registeradmin
+--------------------------------------------------------------------------------
+Description: Register a new hospital admin account and link to a hospital.
+
+Request Body:
+{
+  "first_name": "string (required)",
+  "last_name": "string (optional)",
+  "username": "string (required)",
+  "password": "string (required)",
+  "email": "string (required)",
+  "phone": "string (required)",
+  "date_of_birth": "YYYY-MM-DD (required)",
+  "gender": "male | female | other (required)",
+  "address": "string (required)",
+  "hospital_id": number (required),
+  "latitude": number (optional),
+  "longitude": number (optional)
+}
+
+Success Response:
+{
+  "status": "success",
+  "user_id": 25,
+  "admin_id": 25,
+  "hospital_id": 1,
+  "first_name": "Jane",
+  "last_name": "Admin",
+  "email": "jane.admin@hospital.com"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["field1", "field2"] }
+{ "status": "fail", "message": "user_exists" }
+
+--------------------------------------------------------------------------------
+
+POST /hospital/clinic/register
+--------------------------------------------------------------------------------
+Description: Register a new clinic.
+
+Request Body:
+{
+  "name": "string (required)",
+  "address": "string (optional)",
+  "latitude": number (optional),
+  "longitude": number (optional)
+}
+
+Success Response:
+{
+  "status": "success",
+  "clinic_id": 1,
+  "name": "Heart Care Clinic",
+  "address": "100 Wellness Street",
+  "latitude": 40.7200,
+  "longitude": -74.0100
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["name"] }
+{ "status": "fail", "message": "clinic_exists", "existing_clinic_id": 1 }
+
+--------------------------------------------------------------------------------
+
+GET /hospital/list
+--------------------------------------------------------------------------------
+Description: Get list of all registered hospitals.
+
+Request Body: None (GET request)
+
+Success Response:
+{
+  "status": "success",
+  "total_hospitals": 3,
+  "hospitals": [
+    {
+      "hospital_id": 1,
+      "name": "City General Hospital",
+      "address": "123 Main Street",
+      "latitude": 40.7128,
+      "longitude": -74.0060,
+      "rush_level": "medium"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+
+GET /hospital/clinic/list
+--------------------------------------------------------------------------------
+Description: Get list of all registered clinics.
+
+Request Body: None (GET request)
+
+Success Response:
+{
+  "status": "success",
+  "total_clinics": 2,
+  "clinics": [
+    {
+      "clinic_id": 1,
+      "name": "Heart Care Clinic",
+      "address": "100 Wellness Street",
+      "latitude": 40.7200,
+      "longitude": -74.0100
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+
+POST /hospital/admin_hospital
+--------------------------------------------------------------------------------
+Description: Get hospital(s) linked to an admin.
+
+Request Body:
+{
+  "admin_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "admin_id": 1,
+  "hospital_id": 1,
+  "all_hospitals": [1, 2]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_field: admin_id" }
+{ "status": "fail", "message": "admin_id_must_be_number" }
+{ "status": "fail", "message": "admin_not_found" }
+
+================================================================================
                               END OF API REFERENCE
 ================================================================================
 =================================================================
