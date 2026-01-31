@@ -1,0 +1,852 @@
+================================================================================
+                       MEDSYNC BACKEND API REFERENCE
+================================================================================
+Base URL: https://medsync-android-backend.onrender.com
+================================================================================
+
+================================================================================
+1. AUTHENTICATION
+================================================================================
+
+POST /login
+--------------------------------------------------------------------------------
+Description: Authenticate user with username/email and password.
+
+Request Body:
+{
+  "username": "string (or use email)",
+  "email": "string (or use username)",
+  "password": "string (required)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "user_id": 1,
+  "first_name": "John",
+  "last_name": "Smith",
+  "role": "patient | doctor | driver | admin",
+  "email": "john@example.com",
+  "phone": "1234567890",
+  "date_of_birth": "1990-01-01T00:00:00.000Z",
+  "gender": "male | female | other",
+  "latitude": 40.75,
+  "longitude": -74.01,
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "address": "123 Main St" (for non-drivers),
+  "license_number": "DL123" (for drivers only),
+  "vehicle_number": "ABC1234" (for drivers only)
+}
+
+Failure Responses:
+{ "status": "fail", "message": "user_not_found" }
+{ "status": "fail", "message": "incorrect_password" }
+
+================================================================================
+2. PATIENT REGISTRATION
+================================================================================
+
+POST /registerpatient
+--------------------------------------------------------------------------------
+Description: Register a new patient account.
+
+Request Body (all required unless noted):
+{
+  "first_name": "string (required)",
+  "last_name": "string (optional)",
+  "username": "string (required)",
+  "password": "string (required)",
+  "email": "string (required)",
+  "phone": "string (required)",
+  "date_of_birth": "YYYY-MM-DD (required)",
+  "gender": "male | female | other (required)",
+  "address": "string (required)",
+  "latitude": number (optional),
+  "longitude": number (optional)
+}
+
+Success Response:
+{
+  "status": "success",
+  "user_id": 21,
+  "first_name": "Jane",
+  "last_name": "Doe",
+  "role": "patient",
+  "email": "jane@example.com",
+  "phone": "9999999999",
+  "date_of_birth": "1995-05-15T00:00:00.000Z",
+  "gender": "female",
+  "address": "123 Oak Street",
+  "latitude": 40.75,
+  "longitude": -74.01,
+  "created_at": "2026-01-27T00:00:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["field1", "field2"] }
+{ "status": "fail", "message": "user_exists" }
+
+================================================================================
+3. DRIVER REGISTRATION
+================================================================================
+
+POST /registerdriver
+--------------------------------------------------------------------------------
+Description: Register a new ambulance driver account.
+
+Request Body (all required unless noted):
+{
+  "first_name": "string (required)",
+  "last_name": "string (optional)",
+  "username": "string (required)",
+  "password": "string (required)",
+  "email": "string (required)",
+  "phone": "string (required)",
+  "date_of_birth": "YYYY-MM-DD (required)",
+  "gender": "male | female | other (required)",
+  "driving_license_no": "string (required)",
+  "vehicle_no": "string (required)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "user_id": 22,
+  "driver_id": 22,
+  "username": "driver_john"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["field1", "field2"] }
+{ "status": "fail", "message": "user_exists" }
+{ "status": "error", "message": "server_error" }
+
+================================================================================
+4. DOCTOR REGISTRATION
+================================================================================
+
+POST /registerdoctor
+--------------------------------------------------------------------------------
+Description: Register a new doctor account.
+
+Request Body:
+{
+  "first_name": "string (required)",
+  "last_name": "string (optional)",
+  "username": "string (required)",
+  "email": "string (required)",
+  "password": "string (required)",
+  "phone": "string (required)",
+  "date_of_birth": "YYYY-MM-DD (required)",
+  "gender": "male | female | other (required)",
+  "mrn": "string (required) - Medical Registration Number",
+  "department": "string (required)",
+  "qualifications": ["MBBS", "MD"] (required, array of strings),
+  "multi_place": boolean (required),
+  "hospitals": ["Hospital Name"] (optional, array of strings),
+  "clinics": ["Clinic Name"] (optional, array of strings)
+}
+
+Note: If multi_place is true, at least one of hospitals or clinics must be provided.
+      Hospital/clinic names are fuzzy-matched against the database using Levenshtein
+      distance. If a match is found (≥60% similarity), the hospital_id/clinic_id is
+      automatically assigned. Unmatched names are stored as-is for display.
+
+Success Response:
+{
+  "status": "success",
+  "user_id": 23,
+  "doctor_id": 23,
+  "matched_hospitals": ["City General Hospital"],
+  "unmatched_hospitals": [],
+  "matched_clinics": ["Heart Care Clinic"],
+  "unmatched_clinics": ["Unknown Clinic Name"]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["field1", "field2"] }
+{ "status": "fail", "message": "user_exists" }
+{ "status": "fail", "message": "mrn_exists" }
+{ "status": "error", "message": "server_error" }
+
+================================================================================
+5. DRIVER OPERATIONS
+================================================================================
+
+POST /driver/duty
+--------------------------------------------------------------------------------
+Description: Toggle driver duty status (on/off).
+
+Request Body:
+{
+  "driver_id": number (required),
+  "on_duty": boolean (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "driver_id": 11,
+  "is_active": true
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["driver_id", "on_duty"] }
+{ "status": "fail", "message": "driver_id_must_be_number" }
+{ "status": "fail", "message": "driver_not_found" }
+
+--------------------------------------------------------------------------------
+
+POST /driver/location
+--------------------------------------------------------------------------------
+Description: Update driver's live location (only works when on-duty).
+
+Request Body:
+{
+  "driver_id": number (required),
+  "latitude": number (required),
+  "longitude": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "driver_id": 11
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": [...] }
+{ "status": "fail", "message": "driver_id_must_be_number" }
+{ "status": "fail", "message": "driver_not_found" }
+{ "status": "fail", "message": "driver_off_duty" }
+{ "status": "fail", "message": "invalid_coordinates" }
+
+--------------------------------------------------------------------------------
+
+POST /driver/assigned-sos
+--------------------------------------------------------------------------------
+Description: Check if driver has an active SOS assignment.
+
+Request Body:
+{
+  "driver_id": number (required)
+}
+
+Success Response (assigned):
+{
+  "status": "assigned",
+  "sos_id": 1706300000000,
+  "patient_id": 16,
+  "patient_name": "Jane Williams",
+  "patient_latitude": 40.72,
+  "patient_longitude": -74.01,
+  "assigned_hospital_name": "City General Hospital",
+  "eta": 10
+}
+
+Success Response (no assignment):
+{
+  "status": "no_assignment"
+}
+
+--------------------------------------------------------------------------------
+
+POST /driver/sos/check
+--------------------------------------------------------------------------------
+Description: Check if driver has an incoming SOS request to accept/reject.
+
+Request Body:
+{
+  "driver_id": number (required)
+}
+
+Success Response (incoming request):
+{
+  "status": "incoming",
+  "sos_id": 1706300000000,
+  "patient_id": 16,
+  "patient_name": "Jane Williams",
+  "latitude": 40.72,
+  "longitude": -74.01
+}
+
+Success Response (no request):
+{
+  "status": "no_request"
+}
+
+--------------------------------------------------------------------------------
+
+POST /driver/sos/accept
+--------------------------------------------------------------------------------
+Description: Accept an SOS request.
+
+Request Body:
+{
+  "driver_id": number (required),
+  "sos_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "driver_accepted"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "not_current_candidate_or_already_handled" }
+
+--------------------------------------------------------------------------------
+
+POST /driver/sos/reject
+--------------------------------------------------------------------------------
+Description: Reject an SOS request.
+
+Request Body:
+{
+  "driver_id": number (required),
+  "sos_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "driver_rejected"
+}
+
+--------------------------------------------------------------------------------
+
+POST /driver/nearby
+--------------------------------------------------------------------------------
+Description: Find nearby drivers within 10km radius.
+
+Request Body:
+{
+  "latitude": number (required),
+  "longitude": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "total_drivers": 3,
+  "drivers": [
+    {
+      "name": "Mike Anderson",
+      "license_number": "DL123",
+      "distance_km": 2.45
+    }
+  ]
+}
+
+Success Response (no drivers):
+{
+  "status": "success",
+  "total_drivers": 0,
+  "drivers": null
+}
+
+================================================================================
+6. SOS OPERATIONS
+================================================================================
+
+POST /sos/create
+--------------------------------------------------------------------------------
+Description: Create a new SOS emergency request.
+
+Request Body:
+{
+  "patient_id": number (required),
+  "latitude": number (required),
+  "longitude": number (required),
+  "severity": "critical | severe | moderate | mild | unknown" (optional, defaults to "unknown")
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "sos_created",
+  "sos_id": 1706300000000
+}
+
+Failure Responses:
+{ "status": "error", "message": "missing_fields: patient_id, latitude" }
+{ "status": "error", "message": "latitude_and_longitude_must_be_numbers" }
+{ "status": "error", "message": "invalid_severity: allowed=critical,severe,moderate,mild,unknown" }
+
+--------------------------------------------------------------------------------
+
+POST /sos/status
+--------------------------------------------------------------------------------
+Description: Get current status of an SOS request.
+
+Request Body:
+{
+  "sos_id": number (required)
+}
+
+Success Response (pending):
+{
+  "status": "pending"
+}
+
+Success Response (awaiting driver):
+{
+  "status": "awaiting_driver"
+}
+
+Success Response (assigned):
+{
+  "status": "assigned",
+  "driver_name": "Mike Anderson",
+  "vehicle_number": "ABC1234",
+  "assigned_hospital_id": 1,
+  "eta": 10,
+  "severity": "moderate",
+  "driver_latitude": 40.73,
+  "driver_longitude": -74.00
+}
+
+Success Response (driver arrived):
+{
+  "status": "driver_arrived",
+  "driver_name": "Mike Anderson",
+  "vehicle_number": "ABC1234",
+  "assigned_hospital_id": 1,
+  "eta": 0,
+  "driver_latitude": 40.72,
+  "driver_longitude": -74.01,
+  "severity": "moderate"
+}
+
+Success Response (cancelled/completed):
+{
+  "status": "cancelled | completed",
+  "severity": "moderate"
+}
+
+Failure Response:
+"sos_not_found"
+
+--------------------------------------------------------------------------------
+
+POST /sos/driver-arrived
+--------------------------------------------------------------------------------
+Description: Mark that driver has arrived at patient location.
+
+Request Body:
+{
+  "sos_id": number (required),
+  "driver_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "driver_marked_arrived",
+  "sos_id": 1706300000000,
+  "driver_id": 11
+}
+
+Failure Responses:
+{ "status": "sos_not_found" }
+{ "status": "fail", "message": "sos_not_assigned" }
+{ "status": "fail", "message": "driver_mismatch" }
+
+--------------------------------------------------------------------------------
+
+POST /sos/severity
+--------------------------------------------------------------------------------
+Description: Update severity level of an SOS (by assigned driver).
+
+Request Body:
+{
+  "driver_id": number (required),
+  "patient_id": number (required),
+  "sos_id": number (required),
+  "severity": "critical | severe | moderate | mild" (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "severity_updated",
+  "sos_id": 1706300000000,
+  "severity": "severe"
+}
+
+Failure Responses:
+{ "status": "error", "message": "sos_not_found" }
+{ "status": "error", "message": "unauthorized_driver" }
+{ "status": "error", "message": "cannot_update_severity" }
+{ "status": "error", "message": "invalid_severity" }
+
+--------------------------------------------------------------------------------
+
+POST /sos/cancel
+--------------------------------------------------------------------------------
+Description: Cancel an SOS request (by patient).
+
+Request Body:
+{
+  "sos_id": number (required),
+  "patient_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "sos_cancelled"
+}
+
+Failure Responses:
+{ "status": "sos_not_found" }
+{ "status": "already_cancelled" }
+{ "status": "fail", "message": "cannot_cancel_now" }
+{ "status": "fail", "message": "not_request_owner" }
+
+================================================================================
+7. ROOT ENDPOINT
+================================================================================
+
+GET /
+--------------------------------------------------------------------------------
+Description: Health check endpoint.
+
+Response:
+"MedSync Backend Running"
+
+================================================================================
+8. DOCTOR OPERATIONS
+================================================================================
+
+POST /doctor/appointment
+--------------------------------------------------------------------------------
+Description: Create a new appointment for a patient with a doctor.
+
+Request Body:
+{
+  "patient_id": number (required),
+  "doctor_id": number (required),
+  "hospital_id": number (optional, null if clinic-based),
+  "consultation_place": "hospital | clinic" (optional, defaults to "hospital"),
+  "clinic_name": "string" (required if consultation_place is "clinic"),
+  "appointment_time": "ISO 8601 datetime string" (required, must be in the future)
+}
+
+Success Response:
+{
+  "status": "success",
+  "appointment_id": 1,
+  "patient_id": 16,
+  "doctor_id": 1,
+  "hospital_id": 1,
+  "consultation_place": "hospital",
+  "clinic_name": null,
+  "appointment_time": "2026-02-15T10:30:00.000Z",
+  "status": "upcoming",
+  "created_at": "2026-01-31T12:00:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["patient_id", "doctor_id"] }
+{ "status": "fail", "message": "invalid_appointment_time" }
+{ "status": "fail", "message": "appointment_time_cannot_be_in_past" }
+{ "status": "fail", "message": "patient_not_found" }
+{ "status": "fail", "message": "doctor_not_found" }
+{ "status": "fail", "message": "invalid_consultation_place" }
+{ "status": "fail", "message": "clinic_name_required_for_clinic_consultation" }
+
+--------------------------------------------------------------------------------
+
+POST /doctor/appointment/patient
+--------------------------------------------------------------------------------
+Description: Get all upcoming appointments for a patient.
+
+Request Body:
+{
+  "user_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "total_appointments": 2,
+  "appointments": [
+    {
+      "appointment_id": 1,
+      "doctor_id": 1,
+      "doctor_name": "Dr. Sarah Johnson",
+      "department": "Cardiology",
+      "hospital_id": 1,
+      "consultation_place": "hospital",
+      "clinic_name": null,
+      "appointment_time": "2026-02-15T10:30:00.000Z",
+      "status": "upcoming",
+      "created_at": "2026-01-31T12:00:00.000Z"
+    }
+  ]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["user_id"] }
+{ "status": "fail", "message": "user_not_found" }
+
+--------------------------------------------------------------------------------
+
+POST /doctor/appointment/doctor
+--------------------------------------------------------------------------------
+Description: Get all appointments for a doctor (verifies user is a doctor first).
+
+Request Body:
+{
+  "user_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "doctor_id": 1,
+  "doctor_name": "Dr. Sarah Johnson",
+  "department": "Cardiology",
+  "total_appointments": 5,
+  "upcoming_count": 3,
+  "past_count": 2,
+  "upcoming_appointments": [
+    {
+      "appointment_id": 1,
+      "patient_id": 16,
+      "patient_name": "Jane Williams",
+      "hospital_id": 1,
+      "consultation_place": "hospital",
+      "clinic_name": null,
+      "appointment_time": "2026-02-15T10:30:00.000Z",
+      "status": "upcoming",
+      "created_at": "2026-01-31T12:00:00.000Z"
+    }
+  ],
+  "past_appointments": [
+    {
+      "appointment_id": 2,
+      "patient_id": 17,
+      "patient_name": "John Doe",
+      "hospital_id": 1,
+      "consultation_place": "hospital",
+      "clinic_name": null,
+      "appointment_time": "2026-01-20T09:00:00.000Z",
+      "status": "completed",
+      "created_at": "2026-01-15T10:00:00.000Z"
+    }
+  ]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["user_id"] }
+{ "status": "fail", "message": "user_not_found" }
+{ "status": "fail", "message": "user_is_not_a_doctor" }
+{ "status": "fail", "message": "doctor_details_not_found" }
+
+--------------------------------------------------------------------------------
+
+POST /doctor/list
+--------------------------------------------------------------------------------
+Description: Get paginated list of doctors with optional filters and location-based
+             sorting. If patient location is provided, doctors are sorted by distance
+             to the nearest hospital/clinic where they consult.
+
+Request Body:
+{
+  "department": "string" (optional, case-insensitive filter),
+  "search": "string" (optional, searches doctor name),
+  "hospital_id": number (optional, filter by hospital),
+  "available": boolean (optional, filter by availability),
+  "latitude": number (optional, patient's latitude for distance sorting),
+  "longitude": number (optional, patient's longitude for distance sorting),
+  "page": number (optional, defaults to 1),
+  "limit": number (optional, defaults to 10, max 50)
+}
+
+Success Response (without location):
+{
+  "status": "success",
+  "page": 1,
+  "limit": 10,
+  "total_doctors": 25,
+  "total_pages": 3,
+  "has_next": true,
+  "has_prev": false,
+  "sorted_by_distance": false,
+  "doctors": [
+    {
+      "doctor_id": 1,
+      "name": "Dr. Sarah Johnson",
+      "department": "Cardiology",
+      "qualifications": ["MBBS", "MD"],
+      "is_available": true,
+      "hospitals": ["City General Hospital"],
+      "clinics": [],
+      "multi_place": false
+    }
+  ]
+}
+
+Success Response (with location):
+{
+  "status": "success",
+  "page": 1,
+  "limit": 10,
+  "total_doctors": 25,
+  "total_pages": 3,
+  "has_next": true,
+  "has_prev": false,
+  "sorted_by_distance": true,
+  "doctors": [
+    {
+      "doctor_id": 3,
+      "name": "Dr. Mike Chen",
+      "department": "Cardiology",
+      "qualifications": ["MBBS"],
+      "is_available": true,
+      "hospitals": ["Metro Hospital"],
+      "clinics": ["Heart Care Clinic"],
+      "multi_place": true,
+      "distance_km": 2.45,
+      "nearest_location": {
+        "type": "hospital",
+        "name": "Metro Hospital",
+        "distance_km": 2.45
+      }
+    }
+  ]
+}
+
+Note: Distance is calculated using the Haversine formula. The nearest_location
+      shows the closest hospital OR clinic where the doctor consults.
+
+================================================================================
+                              END OF API REFERENCE
+================================================================================
+=================================================================
+MEDSYNC API DOCUMENTATION - LATEST UPDATES
+Date: January 30, 2026
+=================================================================
+
+NEW ENDPOINT ADDED:
+=================================================================
+
+GET /driver/active-count
+-------------------------
+Description: Returns the count of active (on-duty) ambulance drivers
+
+Base URL: http://localhost:5000 (Development)
+          https://medsync-android-backend.onrender.com (Production)
+
+Full Endpoint: /driver/active-count
+
+Request Method: GET
+
+Request Headers:
+  Content-Type: application/json
+
+Request Body: None (GET request)
+
+Response (Success - 200 OK):
+{
+  "status": "success",
+  "activeDrivers": <number>
+}
+
+Example Response:
+{
+  "status": "success",
+  "activeDrivers": 8
+}
+
+Response (Error - 500 Internal Server Error):
+{
+  "status": "error",
+  "message": "server_error"
+}
+
+Usage Example (JavaScript/Axios):
+```javascript
+import axiosInstance from '../utils/axiosInstance';
+
+const response = await axiosInstance.get('/driver/active-count');
+if (response.data.status === 'success') {
+  console.log('Active drivers:', response.data.activeDrivers);
+}
+```
+
+Usage Example (Fetch API):
+```javascript
+fetch('http://localhost:5000/driver/active-count')
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === 'success') {
+      console.log('Active drivers:', data.activeDrivers);
+    }
+  })
+  .catch(err => console.error('Error:', err));
+```
+
+Frontend Integration:
+- Used in: AdminDashboard.jsx (Dashboard page)
+- Used in: ActiveAmbulance.jsx (Component)
+- Purpose: Display active ambulance count on dashboard
+
+Backend Implementation:
+- File: backend/routes/driver.js
+- Database Query: AmbulanceDriver.countDocuments({is_active: true})
+- Returns count of ambulance drivers with is_active field set to true
+
+Notes:
+- This endpoint counts ambulance drivers who have toggled their duty status to "on"
+- The count updates in real-time as drivers change their duty status via POST /driver/duty
+- No authentication required (add if needed for production)
+- Response time: ~50-100ms (depends on database load)
+
+=================================================================
+EXISTING RELATED ENDPOINTS:
+=================================================================
+
+POST /driver/duty
+-----------------
+Description: Toggle driver duty status (on/off)
+
+Request Body:
+{
+  "driver_id": <number>,
+  "on_duty": <boolean>
+}
+
+Response:
+{
+  "status": "success",
+  "driver_id": <number>,
+  "is_active": <boolean>
+}
+
+POST /driver/location
+---------------------
+Description: Update driver's live location (only when on duty)
+
+Request Body:
+{
+  "driver_id": <number>,
+  "latitude": <number>,
+  "longitude": <number>
+}
+
+Response:
+{
+  "status": "success",
+  "driver_id": <number>,
+  "latitude": <number>,
+  "longitude": <number>
+}
+
+=================================================================
+END OF DOCUMENTATION
+=================================================================
+

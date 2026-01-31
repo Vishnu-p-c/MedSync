@@ -3,6 +3,68 @@ const bcrypt = require('bcrypt');
 
 const User = require('../models/User');
 const DoctorDetails = require('../models/Doctor');
+const Hospital = require('../models/Hospital');
+const Clinic = require('../models/Clinic');
+
+// Levenshtein distance for fuzzy matching
+const levenshteinDistance = (str1, str2) => {
+  const s1 = str1.toLowerCase();
+  const s2 = str2.toLowerCase();
+  const matrix = [];
+
+  for (let i = 0; i <= s2.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= s1.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= s2.length; i++) {
+    for (let j = 1; j <= s1.length; j++) {
+      if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,  // substitution
+            matrix[i][j - 1] + 1,      // insertion
+            matrix[i - 1][j] + 1       // deletion
+        );
+      }
+    }
+  }
+  return matrix[s2.length][s1.length];
+};
+
+// Calculate similarity score (0 to 1, where 1 is exact match)
+const similarityScore = (str1, str2) => {
+  const maxLen = Math.max(str1.length, str2.length);
+  if (maxLen === 0) return 1;
+  const distance = levenshteinDistance(str1, str2);
+  return 1 - (distance / maxLen);
+};
+
+// Find best matching entity from a list (hospital or clinic)
+// Returns { id, name, score } or null if no good match found
+const findBestMatch = (inputName, entities, idField, threshold = 0.6) => {
+  if (!inputName || !entities || entities.length === 0) return null;
+
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const entity of entities) {
+    const score = similarityScore(inputName.trim(), entity.name);
+    if (score > bestScore && score >= threshold) {
+      bestScore = score;
+      bestMatch = {
+        id: entity[idField],
+        name: entity.name,
+        score: Math.round(score * 100) / 100
+      };
+    }
+  }
+
+  return bestMatch;
+};
 
 // POST /registerdoctor
 // Required (User): first_name, username, password, email, phone, date_of_birth,
@@ -99,6 +161,48 @@ router.post('/', async (req, res) => {
     const existingId = await User.findOne({user_id: newUserId}).lean();
     const finalUserId = existingId ? newUserId + 1 : newUserId;
 
+    // Fuzzy match hospitals and clinics to get IDs
+    const allHospitals = await Hospital.find({}).lean();
+    const allClinics = await Clinic.find({}).lean();
+
+    const matchedHospitalIds = [];
+    const matchedHospitalNames = [];
+    const unmatchedHospitals = [];
+
+    for (const hospName of normalizedHospitals) {
+      const match = findBestMatch(hospName, allHospitals, 'hospital_id', 0.6);
+      if (match) {
+        if (!matchedHospitalIds.includes(match.id)) {
+          matchedHospitalIds.push(match.id);
+          matchedHospitalNames.push(match.name);
+        }
+      } else {
+        // Could not match - store the name as-is for display
+        unmatchedHospitals.push(hospName);
+      }
+    }
+
+    const matchedClinicIds = [];
+    const matchedClinicNames = [];
+    const unmatchedClinics = [];
+
+    for (const clinicName of normalizedClinics) {
+      const match = findBestMatch(clinicName, allClinics, 'clinic_id', 0.6);
+      if (match) {
+        if (!matchedClinicIds.includes(match.id)) {
+          matchedClinicIds.push(match.id);
+          matchedClinicNames.push(match.name);
+        }
+      } else {
+        // Could not match - store the name as-is for display
+        unmatchedClinics.push(clinicName);
+      }
+    }
+
+    // Combine matched names with unmatched names for display
+    const finalHospitalNames = [...matchedHospitalNames, ...unmatchedHospitals];
+    const finalClinicNames = [...matchedClinicNames, ...unmatchedClinics];
+
     const newUser = new User({
       user_id: finalUserId,
       first_name,
@@ -126,8 +230,10 @@ router.post('/', async (req, res) => {
       department,
       qualifications,
       multi_place,
-      hospitals: normalizedHospitals,
-      clinics: normalizedClinics,
+      hospital_id: matchedHospitalIds.length > 0 ? matchedHospitalIds : null,
+      clinic_id: matchedClinicIds.length > 0 ? matchedClinicIds : null,
+      hospitals: finalHospitalNames,
+      clinics: finalClinicNames,
       is_available: false,
       last_attendance_time: null
     });
@@ -137,9 +243,14 @@ router.post('/', async (req, res) => {
     return res.json({
       status: 'success',
       user_id: newUser.user_id,
-      doctor_id: doctorDetails.doctor_id
+      doctor_id: doctorDetails.doctor_id,
+      matched_hospitals: matchedHospitalNames,
+      unmatched_hospitals: unmatchedHospitals,
+      matched_clinics: matchedClinicNames,
+      unmatched_clinics: unmatchedClinics
     });
   } catch (err) {
+    console.error('Register doctor error:', err);
     return res.status(500).json({status: 'error', message: 'server_error'});
   }
 });
