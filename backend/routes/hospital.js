@@ -1,8 +1,73 @@
 const router = require('express').Router();
 const User = require('../models/User');
+const Hospital = require('../models/Hospital');
+const Clinic = require('../models/Clinic');
 const HospitalAdmin = require('../models/HospitalAdmin');
 const EquipmentStatus = require('../models/Equipment');
 const bcrypt = require('bcryptjs');
+
+// POST /hospital/register
+// Body: { name, address, latitude, longitude, rush_level }
+// Creates a new hospital
+router.post('/register', async (req, res) => {
+  try {
+    const {name, address, latitude, longitude, rush_level} = req.body;
+
+    // Validate required fields
+    if (!name) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_fields', missing: ['name']});
+    }
+
+    // Check if hospital with same name already exists
+    const existingHospital = await Hospital.findOne(
+        {name: {$regex: new RegExp(`^${name.trim()}$`, 'i')}});
+    if (existingHospital) {
+      return res.status(409).json({
+        status: 'fail',
+        message: 'hospital_exists',
+        existing_hospital_id: existingHospital.hospital_id
+      });
+    }
+
+    // Generate new hospital_id
+    const lastHospital =
+        await Hospital.findOne().sort({hospital_id: -1}).lean();
+    const newHospitalId = lastHospital ? lastHospital.hospital_id + 1 : 1;
+
+    // Validate rush_level if provided
+    const validRushLevels = ['low', 'medium', 'high', 'critical'];
+    const finalRushLevel =
+        rush_level && validRushLevels.includes(rush_level) ? rush_level : 'low';
+
+    // Create new hospital
+    const newHospital = new Hospital({
+      hospital_id: newHospitalId,
+      name: name.trim(),
+      address: address ? address.trim() : null,
+      latitude: latitude || null,
+      longitude: longitude || null,
+      rush_level: finalRushLevel,
+      updated_at: new Date()
+    });
+
+    await newHospital.save();
+
+    return res.status(201).json({
+      status: 'success',
+      hospital_id: newHospital.hospital_id,
+      name: newHospital.name,
+      address: newHospital.address,
+      latitude: newHospital.latitude,
+      longitude: newHospital.longitude,
+      rush_level: newHospital.rush_level
+    });
+
+  } catch (err) {
+    console.error('Error in /hospital/register:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
 
 // POST /hospital/registeradmin
 // Body: { first_name, last_name, username, password, email, phone,
@@ -198,6 +263,107 @@ router.post('/total_equipment', async (req, res) => {
 
   } catch (err) {
     console.error('Error in /hospital/total_equipment:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
+// POST /hospital/clinic/register
+// Body: { name, address, latitude, longitude }
+// Creates a new clinic
+router.post('/clinic/register', async (req, res) => {
+  try {
+    const {name, address, latitude, longitude} = req.body;
+
+    // Validate required fields
+    if (!name) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_fields', missing: ['name']});
+    }
+
+    // Check if clinic with same name already exists
+    const existingClinic = await Clinic.findOne(
+        {name: {$regex: new RegExp(`^${name.trim()}$`, 'i')}});
+    if (existingClinic) {
+      return res.status(409).json({
+        status: 'fail',
+        message: 'clinic_exists',
+        existing_clinic_id: existingClinic.clinic_id
+      });
+    }
+
+    // Generate new clinic_id
+    const lastClinic = await Clinic.findOne().sort({clinic_id: -1}).lean();
+    const newClinicId = lastClinic ? lastClinic.clinic_id + 1 : 1;
+
+    // Create new clinic
+    const newClinic = new Clinic({
+      clinic_id: newClinicId,
+      name: name.trim(),
+      address: address ? address.trim() : null,
+      latitude: latitude || null,
+      longitude: longitude || null
+    });
+
+    await newClinic.save();
+
+    return res.status(201).json({
+      status: 'success',
+      clinic_id: newClinic.clinic_id,
+      name: newClinic.name,
+      address: newClinic.address,
+      latitude: newClinic.latitude,
+      longitude: newClinic.longitude
+    });
+
+  } catch (err) {
+    console.error('Error in /hospital/clinic/register:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
+// GET /hospital/list
+// Returns all hospitals
+router.get('/list', async (req, res) => {
+  try {
+    const hospitals = await Hospital.find({}).lean();
+
+    return res.json({
+      status: 'success',
+      total_hospitals: hospitals.length,
+      hospitals: hospitals.map(h => ({
+                                 hospital_id: h.hospital_id,
+                                 name: h.name,
+                                 address: h.address,
+                                 latitude: h.latitude,
+                                 longitude: h.longitude,
+                                 rush_level: h.rush_level
+                               }))
+    });
+  } catch (err) {
+    console.error('Error in /hospital/list:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
+// GET /hospital/clinic/list
+// Returns all clinics
+router.get('/clinic/list', async (req, res) => {
+  try {
+    const clinics = await Clinic.find({}).lean();
+
+    return res.json({
+      status: 'success',
+      total_clinics: clinics.length,
+      clinics: clinics.map(c => ({
+                             clinic_id: c.clinic_id,
+                             name: c.name,
+                             address: c.address,
+                             latitude: c.latitude,
+                             longitude: c.longitude
+                           }))
+    });
+  } catch (err) {
+    console.error('Error in /hospital/clinic/list:', err);
     return res.status(500).json({status: 'error', message: 'server_error'});
   }
 });
