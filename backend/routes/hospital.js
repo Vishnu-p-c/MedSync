@@ -71,8 +71,9 @@ router.post('/register', async (req, res) => {
 
 // POST /hospital/registeradmin
 // Body: { first_name, last_name, username, password, email, phone,
-// date_of_birth, gender, address, hospital_id } Creates a new admin user and
-// links them to the hospital (admin_id = user_id)
+// date_of_birth, gender, address, hospital_id OR clinic_id, admin_type }
+// Creates a new admin user and links them to the hospital or clinic
+// (admin_id = user_id)
 router.post('/registeradmin', async (req, res) => {
   try {
     const {
@@ -86,15 +87,32 @@ router.post('/registeradmin', async (req, res) => {
       gender,
       address,
       hospital_id,
+      clinic_id,
+      admin_type,
       latitude,
       longitude
     } = req.body;
 
-    // Validate required fields
+    // Determine admin type: 'hospital' or 'clinic'
+    const finalAdminType = admin_type === 'clinic' ? 'clinic' : 'hospital';
+
+    // Validate required fields (hospital_id OR clinic_id based on admin_type)
     const required = [
       'first_name', 'username', 'password', 'email', 'phone', 'date_of_birth',
-      'gender', 'address', 'hospital_id'
+      'gender', 'address'
     ];
+
+    // Add the appropriate ID requirement
+    if (finalAdminType === 'clinic') {
+      if (!clinic_id) {
+        required.push('clinic_id');
+      }
+    } else {
+      if (!hospital_id) {
+        required.push('hospital_id');
+      }
+    }
+
     const missing = required.filter(field => !req.body[field]);
     if (missing.length) {
       return res.status(400).json(
@@ -136,22 +154,40 @@ router.post('/registeradmin', async (req, res) => {
     await newUser.save();
 
     // Create HospitalAdmin link with admin_id = user_id
-    const hospitalAdmin = new HospitalAdmin({
+    const adminData = {
       admin_id: newUserId,  // admin_id is same as user_id
-      hospital_id: Number(hospital_id)
-    });
+      admin_type: finalAdminType
+    };
 
+    if (finalAdminType === 'clinic') {
+      adminData.clinic_id = Number(clinic_id);
+      adminData.hospital_id = null;
+    } else {
+      adminData.hospital_id = Number(hospital_id);
+      adminData.clinic_id = null;
+    }
+
+    const hospitalAdmin = new HospitalAdmin(adminData);
     await hospitalAdmin.save();
 
-    return res.status(201).json({
+    // Build response
+    const response = {
       status: 'success',
       user_id: newUserId,
       admin_id: newUserId,  // Confirming admin_id = user_id
-      hospital_id: Number(hospital_id),
+      admin_type: finalAdminType,
       first_name: newUser.first_name,
       last_name: newUser.last_name,
       email: newUser.email
-    });
+    };
+
+    if (finalAdminType === 'clinic') {
+      response.clinic_id = Number(clinic_id);
+    } else {
+      response.hospital_id = Number(hospital_id);
+    }
+
+    return res.status(201).json(response);
 
   } catch (err) {
     console.error('Error in /hospital/registeradmin:', err);
@@ -167,7 +203,7 @@ router.post('/registeradmin', async (req, res) => {
 
 // POST /hospital/admin_hospital
 // Body: { admin_id }
-// Returns the hospital_id(s) for the given admin
+// Returns the hospital_id(s) and/or clinic_id(s) for the given admin
 router.post('/admin_hospital', async (req, res) => {
   try {
     const {admin_id} = req.body;
@@ -183,20 +219,38 @@ router.post('/admin_hospital', async (req, res) => {
           {status: 'fail', message: 'admin_id_must_be_number'});
     }
 
-    // Find all hospitals this admin belongs to
+    // Find all hospitals/clinics this admin belongs to
     const adminLinks = await HospitalAdmin.find({admin_id: adminIdNum}).lean();
 
     if (!adminLinks || adminLinks.length === 0) {
       return res.status(404).json({status: 'fail', message: 'admin_not_found'});
     }
 
-    // Return the first hospital_id (primary hospital)
-    return res.json({
+    // Separate hospital and clinic links
+    const hospitalLinks = adminLinks.filter(
+        link => link.admin_type === 'hospital' ||
+            (!link.admin_type && link.hospital_id));
+    const clinicLinks = adminLinks.filter(link => link.admin_type === 'clinic');
+
+    // Build response
+    const response = {
       status: 'success',
       admin_id: adminIdNum,
-      hospital_id: adminLinks[0].hospital_id,
-      all_hospitals: adminLinks.map(link => link.hospital_id)
-    });
+      all_hospitals:
+          hospitalLinks.map(link => link.hospital_id).filter(id => id !== null),
+      all_clinics:
+          clinicLinks.map(link => link.clinic_id).filter(id => id !== null)
+    };
+
+    // Add primary hospital/clinic for convenience
+    if (hospitalLinks.length > 0) {
+      response.hospital_id = hospitalLinks[0].hospital_id;
+    }
+    if (clinicLinks.length > 0) {
+      response.clinic_id = clinicLinks[0].clinic_id;
+    }
+
+    return res.json(response);
 
   } catch (err) {
     console.error('Error in /hospital/admin_hospital:', err);
