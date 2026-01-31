@@ -26,7 +26,7 @@ backend/.env
 *.njsproj
 *.sln
 *.sw?
-*.tdlr
-.gitignore
+idea.tdlr
+
 # API documentation (local only)
 
