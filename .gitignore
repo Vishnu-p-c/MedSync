@@ -27,6 +27,6 @@ backend/.env
 *.sln
 *.sw?
 *.tdlr
-
+.gitignore
 # API documentation (local only)
 
