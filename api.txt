@@ -759,7 +759,9 @@ Failure Responses:
 
 POST /hospital/registeradmin
 --------------------------------------------------------------------------------
-Description: Register a new hospital admin account and link to a hospital.
+Description: Register a new hospital OR clinic admin account and link to a 
+             hospital or clinic. Uses the same endpoint for both types.
+             (admin_id = user_id)
 
 Request Body:
 {
@@ -772,20 +774,35 @@ Request Body:
   "date_of_birth": "YYYY-MM-DD (required)",
   "gender": "male | female | other (required)",
   "address": "string (required)",
-  "hospital_id": number (required),
+  "admin_type": "hospital | clinic" (optional, defaults to "hospital"),
+  "hospital_id": number (required if admin_type is "hospital"),
+  "clinic_id": number (required if admin_type is "clinic"),
   "latitude": number (optional),
   "longitude": number (optional)
 }
 
-Success Response:
+Success Response (Hospital Admin):
 {
   "status": "success",
   "user_id": 25,
   "admin_id": 25,
+  "admin_type": "hospital",
   "hospital_id": 1,
   "first_name": "Jane",
   "last_name": "Admin",
   "email": "jane.admin@hospital.com"
+}
+
+Success Response (Clinic Admin):
+{
+  "status": "success",
+  "user_id": 26,
+  "admin_id": 26,
+  "admin_type": "clinic",
+  "clinic_id": 1,
+  "first_name": "John",
+  "last_name": "Clinic",
+  "email": "john.clinic@example.com"
 }
 
 Failure Responses:
@@ -871,7 +888,7 @@ Success Response:
 
 POST /hospital/admin_hospital
 --------------------------------------------------------------------------------
-Description: Get hospital(s) linked to an admin.
+Description: Get hospital(s) and/or clinic(s) linked to an admin.
 
 Request Body:
 {
@@ -883,8 +900,14 @@ Success Response:
   "status": "success",
   "admin_id": 1,
   "hospital_id": 1,
-  "all_hospitals": [1, 2]
+  "clinic_id": 2,
+  "all_hospitals": [1, 2],
+  "all_clinics": [2, 3]
 }
+
+Note: hospital_id/clinic_id are the primary (first) assigned locations.
+      all_hospitals/all_clinics contain all assigned locations.
+      Fields may be omitted if admin has no hospitals or no clinics.
 
 Failure Responses:
 { "status": "fail", "message": "missing_field: admin_id" }
