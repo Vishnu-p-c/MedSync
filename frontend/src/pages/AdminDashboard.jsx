@@ -7,7 +7,10 @@ function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeAmbulances, setActiveAmbulances] = useState(0);
   const [ambulanceLoading, setAmbulanceLoading] = useState(true);
+  const [doctorsData, setDoctorsData] = useState({ totalDoctors: 0, doctorsOnDuty: 0 });
+  const [doctorsLoading, setDoctorsLoading] = useState(true);
   const userName = localStorage.getItem('userName') || 'Admin';
+  const userId = localStorage.getItem('userId'); // This is the admin_id
 
   // Fetch active ambulance count
   useEffect(() => {
@@ -26,6 +29,33 @@ function AdminDashboard() {
 
     fetchActiveAmbulances();
   }, []);
+
+  // Fetch doctors count for this admin's hospital
+  useEffect(() => {
+    const fetchDoctorsCount = async () => {
+      if (!userId) {
+        console.error('No admin ID found in localStorage');
+        setDoctorsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await axiosInstance.get(`/admin/dashboard/doctors-count?admin_id=${userId}`);
+        if (response.data.status === 'success') {
+          setDoctorsData({
+            totalDoctors: response.data.totalDoctors,
+            doctorsOnDuty: response.data.doctorsOnDuty
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching doctors count:', error);
+      } finally {
+        setDoctorsLoading(false);
+      }
+    };
+
+    fetchDoctorsCount();
+  }, [userId]);
 
   // Sample data - replace with API calls
   const dashboardData = {
@@ -74,7 +104,7 @@ function AdminDashboard() {
         {/* Desktop Header */}
         <header className="hidden lg:flex items-center justify-between p-6 border-b border-white/10">
           <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard (Home)</h1>
+            <h1 className="text-2xl font-bold text-white">Dashboard </h1>
             <p className="text-white/60 text-sm">Monitor and manage hospital equipment inventory</p>
           </div>
           <div className="flex items-center gap-3 bg-white/10 rounded-full px-4 py-2">
@@ -159,25 +189,16 @@ function AdminDashboard() {
               borderRadius={16}
               className="p-4"
             >
-              <div className="mb-4">
-                <p className="text-white/60 text-sm">Doctors on Duty</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl font-bold text-white">
-                    {dashboardData.doctorsOnDuty.current}/{dashboardData.doctorsOnDuty.total}
-                  </span>
-                  <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                </div>
-              </div>
-              <div>
-                <p className="text-white/60 text-sm">SOS Requests</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl font-bold text-white">{dashboardData.sosRequests.total}</span>
-                  <span className="text-white/60">Ingress</span>
-                  <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
+              <div className="mb-4 flex flex-col  justify-center h-full ">
+                <p className="text-white/60 text-sm mb-2">Doctors on Duty</p>
+                <div className="flex  gap-2 pt-6 ">
+                  {doctorsLoading ? (
+                    <span className="text-4xl font-bold text-white">...</span>
+                  ) : (
+                    <span className="text-4xl font-bold text-white ">
+                      {doctorsData.doctorsOnDuty}/{doctorsData.totalDoctors}
+                    </span>
+                  )}
                 </div>
               </div>
             </GlassSurface>

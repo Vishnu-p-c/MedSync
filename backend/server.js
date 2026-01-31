@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 require('dotenv').config();
+
 const loginRoute = require('./routes/login');
 const registerPatientRoute = require('./routes/registerpatient');
 const registerDriverRoute = require('./routes/registerdriver');
@@ -10,6 +11,7 @@ const driverRoutes = require('./routes/driver');
 const sosRoutes = require('./routes/sos');
 const hospitalRoutes = require('./routes/hospital');
 const doctorRoutes = require('./routes/doctorRoutes');
+const adminDashboardRoutes = require('./routes/adminDashboard');
 
 const app = express();
 
@@ -33,6 +35,7 @@ app.use('/driver', driverRoutes);
 app.use('/sos', sosRoutes);
 app.use('/hospital', hospitalRoutes);
 app.use('/doctor', doctorRoutes);
+app.use('/admin/dashboard', adminDashboardRoutes);
 // app.use("/api/doctors", require("./routes/doctorRoutes"));
 
 app.listen(5000, () => console.log('Server running on port 5000'));
