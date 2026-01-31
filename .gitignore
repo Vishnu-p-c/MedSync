@@ -28,4 +28,4 @@ backend/.env
 *.sw?
 
 # API documentation (local only)
-api.txt
+

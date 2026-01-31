@@ -1,6 +1,20 @@
 const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
 const User = require('../models/User');
+const Hospital = require('../models/Hospital');
+const Clinic = require('../models/Clinic');
+
+// Haversine formula to calculate distance between two lat/long points (in km)
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;  // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
 // Helper to get next appointment_id
 const getNextAppointmentId = async () => {
@@ -242,8 +256,185 @@ const getDoctorAppointments = async (req, res) => {
   }
 };
 
+// POST /doctor/list - Get paginated list of doctors with optional filters and
+// location-based sorting
+const listDoctors = async (req, res) => {
+  try {
+    const {
+      department,
+      search,
+      hospital_id,
+      available,
+      latitude,
+      longitude,
+      page = 1,
+      limit = 10
+    } = req.body;
+
+    // Validate and cap limit
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 10));
+
+    // Build filter query
+    const filter = {};
+
+    if (department) {
+      filter.department = {$regex: department, $options: 'i'};
+    }
+
+    if (search) {
+      filter.$or = [
+        {first_name: {$regex: search, $options: 'i'}},
+        {last_name: {$regex: search, $options: 'i'}},
+        {name: {$regex: search, $options: 'i'}}
+      ];
+    }
+
+    if (hospital_id) {
+      filter.hospital_id = parseInt(hospital_id);
+    }
+
+    if (available === true || available === 'true') {
+      filter.is_available = true;
+    }
+
+    // Get all matching doctors
+    let doctors = await Doctor.find(filter).lean();
+
+    // If patient location is provided, calculate distances and sort
+    const hasLocation = latitude !== undefined && longitude !== undefined &&
+        !isNaN(parseFloat(latitude)) && !isNaN(parseFloat(longitude));
+
+    if (hasLocation) {
+      const patientLat = parseFloat(latitude);
+      const patientLon = parseFloat(longitude);
+
+      // Fetch all hospitals and clinics for distance calculation
+      const hospitals = await Hospital.find({}).lean();
+      const clinics = await Clinic.find({}).lean();
+
+      const hospitalMap = {};
+      hospitals.forEach(h => {
+        hospitalMap[h.hospital_id] = h;
+      });
+
+      const clinicMap = {};
+      clinics.forEach(c => {
+        clinicMap[c.clinic_id] = c;
+      });
+
+      // Calculate minimum distance for each doctor
+      doctors = await Promise.all(doctors.map(async (doctor) => {
+        let minDistance = Infinity;
+        let nearestLocation = null;
+
+        // Check hospital distances
+        if (doctor.hospital_id && Array.isArray(doctor.hospital_id)) {
+          for (const hId of doctor.hospital_id) {
+            const hospital = hospitalMap[hId];
+            if (hospital && hospital.latitude && hospital.longitude) {
+              const dist = calculateDistance(
+                  patientLat, patientLon, hospital.latitude,
+                  hospital.longitude);
+              if (dist < minDistance) {
+                minDistance = dist;
+                nearestLocation = {
+                  type: 'hospital',
+                  name: hospital.name,
+                  distance_km: Math.round(dist * 100) / 100
+                };
+              }
+            }
+          }
+        }
+
+        // Check clinic distances
+        if (doctor.clinic_id && Array.isArray(doctor.clinic_id)) {
+          for (const cId of doctor.clinic_id) {
+            const clinic = clinicMap[cId];
+            if (clinic && clinic.latitude && clinic.longitude) {
+              const dist = calculateDistance(
+                  patientLat, patientLon, clinic.latitude, clinic.longitude);
+              if (dist < minDistance) {
+                minDistance = dist;
+                nearestLocation = {
+                  type: 'clinic',
+                  name: clinic.name,
+                  distance_km: Math.round(dist * 100) / 100
+                };
+              }
+            }
+          }
+        }
+
+        return {
+          ...doctor,
+          distance_km: minDistance === Infinity ?
+              null :
+              Math.round(minDistance * 100) / 100,
+          nearest_location: nearestLocation
+        };
+      }));
+
+      // Sort by distance (doctors with location first, then those without)
+      doctors.sort((a, b) => {
+        if (a.distance_km === null && b.distance_km === null) return 0;
+        if (a.distance_km === null) return 1;
+        if (b.distance_km === null) return -1;
+        return a.distance_km - b.distance_km;
+      });
+    }
+
+    // Calculate pagination
+    const totalDoctors = doctors.length;
+    const totalPages = Math.ceil(totalDoctors / limitNum);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Apply pagination
+    const paginatedDoctors = doctors.slice(skip, skip + limitNum);
+
+    // Format response
+    const formattedDoctors = paginatedDoctors.map(doc => {
+      const result = {
+        doctor_id: doc.doctor_id,
+        name: `${doc.first_name} ${doc.last_name || ''}`.trim(),
+        department: doc.department,
+        qualifications: doc.qualifications,
+        is_available: doc.is_available,
+        hospitals: doc.hospitals || [],
+        clinics: doc.clinics || [],
+        multi_place: doc.multi_place
+      };
+
+      if (hasLocation) {
+        result.distance_km = doc.distance_km;
+        result.nearest_location = doc.nearest_location;
+      }
+
+      return result;
+    });
+
+    return res.json({
+      status: 'success',
+      page: pageNum,
+      limit: limitNum,
+      total_doctors: totalDoctors,
+      total_pages: totalPages,
+      has_next: pageNum < totalPages,
+      has_prev: pageNum > 1,
+      sorted_by_distance: hasLocation,
+      doctors: formattedDoctors
+    });
+
+  } catch (error) {
+    console.error('List doctors error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
 module.exports = {
   createAppointment,
   getPatientAppointments,
-  getDoctorAppointments
+  getDoctorAppointments,
+  listDoctors
 };
