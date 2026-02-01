@@ -3,6 +3,7 @@ const Doctor = require('../models/Doctor');
 const User = require('../models/User');
 const Hospital = require('../models/Hospital');
 const Clinic = require('../models/Clinic');
+const DoctorSchedule = require('../models/DoctorSchedule');
 
 // Haversine formula to calculate distance between two lat/long points (in km)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -432,9 +433,472 @@ const listDoctors = async (req, res) => {
   }
 };
 
+// GET /doctor/:doctor_id/booking-info - Get doctor details for booking fragment
+const getBookingInfo = async (req, res) => {
+  try {
+    const {doctor_id} = req.params;
+
+    if (!doctor_id) {
+      return res.json({status: 'fail', message: 'doctor_id_required'});
+    }
+
+    const doctor =
+        await Doctor.findOne({doctor_id: parseInt(doctor_id)}).lean();
+    if (!doctor) {
+      return res.json({status: 'fail', message: 'doctor_not_found'});
+    }
+
+    // Fetch hospital names
+    const hospitals = [];
+    if (doctor.hospital_id && Array.isArray(doctor.hospital_id)) {
+      const hospitalDocs =
+          await Hospital.find({hospital_id: {$in: doctor.hospital_id}}).lean();
+      for (const h of hospitalDocs) {
+        hospitals.push({hospital_id: h.hospital_id, name: h.name});
+      }
+    }
+
+    // Fetch clinic names
+    const clinics = [];
+    if (doctor.clinic_id && Array.isArray(doctor.clinic_id)) {
+      const clinicDocs =
+          await Clinic.find({clinic_id: {$in: doctor.clinic_id}}).lean();
+      for (const c of clinicDocs) {
+        clinics.push({clinic_id: c.clinic_id, name: c.name});
+      }
+    }
+
+    return res.json({
+      status: 'success',
+      doctor_id: doctor.doctor_id,
+      name: doctor.name ||
+          `Dr. ${doctor.first_name} ${doctor.last_name || ''}`.trim(),
+      department: doctor.department,
+      qualifications: doctor.qualifications,
+      is_available: doctor.is_available,
+      hospitals: hospitals,
+      clinics: clinics
+    });
+
+  } catch (error) {
+    console.error('Get booking info error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
+// GET /doctor/:doctor_id/schedule - Get weekly schedule for a specific location
+const getDoctorSchedule = async (req, res) => {
+  try {
+    const {doctor_id} = req.params;
+    const {location_type, location_id} = req.query;
+
+    if (!doctor_id) {
+      return res.json({status: 'fail', message: 'doctor_id_required'});
+    }
+    if (!location_type || !location_id) {
+      return res.json(
+          {status: 'fail', message: 'location_type_and_location_id_required'});
+    }
+    if (!['hospital', 'clinic'].includes(location_type)) {
+      return res.json({status: 'fail', message: 'invalid_location_type'});
+    }
+
+    const schedule =
+        await DoctorSchedule.findOne({doctor_id: parseInt(doctor_id)}).lean();
+    if (!schedule) {
+      return res.json({status: 'fail', message: 'schedule_not_found'});
+    }
+
+    let locationSchedule;
+    let locationName;
+
+    if (location_type === 'hospital') {
+      const hospitalScheduleMap = schedule.hospital_schedule || {};
+      locationSchedule = hospitalScheduleMap[location_id.toString()];
+    } else {
+      const clinicScheduleMap = schedule.clinic_schedule || {};
+      locationSchedule = clinicScheduleMap[location_id.toString()];
+    }
+
+    if (!locationSchedule) {
+      return res.json(
+          {status: 'fail', message: 'no_schedule_for_this_location'});
+    }
+
+    // Extract available days
+    const availableDays = locationSchedule.slots.map(s => s.day);
+
+    return res.json({
+      status: 'success',
+      doctor_id: parseInt(doctor_id),
+      location: {
+        type: location_type,
+        id: parseInt(location_id),
+        name: locationSchedule.location_name
+      },
+      weekly_schedule: locationSchedule.slots,
+      available_days: [...new Set(availableDays)]
+    });
+
+  } catch (error) {
+    console.error('Get doctor schedule error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
+// Helper to generate time slots from start to end
+const generateTimeSlots = (start, end, duration) => {
+  const slots = [];
+  const [startHour, startMin] = start.split(':').map(Number);
+  const [endHour, endMin] = end.split(':').map(Number);
+
+  let currentMinutes = startHour * 60 + startMin;
+  const endMinutes = endHour * 60 + endMin;
+
+  while (currentMinutes < endMinutes) {
+    const hours = Math.floor(currentMinutes / 60);
+    const mins = currentMinutes % 60;
+    slots.push(
+        `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`);
+    currentMinutes += duration;
+  }
+
+  return slots;
+};
+
+// GET /doctor/:doctor_id/slots - Get available time slots for a specific date
+const getDoctorSlots = async (req, res) => {
+  try {
+    const {doctor_id} = req.params;
+    const {location_type, location_id, date} = req.query;
+
+    // Validate inputs
+    if (!doctor_id) {
+      return res.json({status: 'fail', message: 'doctor_id_required'});
+    }
+    if (!location_type || !location_id || !date) {
+      return res.json({
+        status: 'fail',
+        message: 'location_type_location_id_and_date_required'
+      });
+    }
+    if (!['hospital', 'clinic'].includes(location_type)) {
+      return res.json({status: 'fail', message: 'invalid_location_type'});
+    }
+
+    // Parse and validate date
+    const selectedDate = new Date(date);
+    if (isNaN(selectedDate.getTime())) {
+      return res.json({status: 'fail', message: 'invalid_date_format'});
+    }
+
+    // Get day of week
+    const days = [
+      'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday',
+      'saturday'
+    ];
+    const dayOfWeek = days[selectedDate.getDay()];
+
+    // Get doctor's schedule
+    const schedule =
+        await DoctorSchedule.findOne({doctor_id: parseInt(doctor_id)}).lean();
+    if (!schedule) {
+      return res.json({status: 'fail', message: 'schedule_not_found'});
+    }
+
+    // Get location schedule
+    let locationSchedule;
+    if (location_type === 'hospital') {
+      locationSchedule = schedule.hospital_schedule ?
+          schedule.hospital_schedule[location_id.toString()] :
+          null;
+    } else {
+      locationSchedule = schedule.clinic_schedule ?
+          schedule.clinic_schedule[location_id.toString()] :
+          null;
+    }
+
+    if (!locationSchedule) {
+      return res.json(
+          {status: 'fail', message: 'no_schedule_for_this_location'});
+    }
+
+    // Find schedule for the specific day
+    const daySchedule = locationSchedule.slots.find(s => s.day === dayOfWeek);
+    if (!daySchedule) {
+      return res.json({
+        status: 'success',
+        doctor_id: parseInt(doctor_id),
+        date: date,
+        location: {
+          type: location_type,
+          id: parseInt(location_id),
+          name: locationSchedule.location_name
+        },
+        message: 'doctor_not_available_on_this_day',
+        slots: []
+      });
+    }
+
+    // Generate time slots
+    const timeSlots = generateTimeSlots(
+        daySchedule.start, daySchedule.end, daySchedule.slot_duration || 30);
+    const maxPatients = daySchedule.max_patients || 4;
+
+    // Get start and end of selected date for query
+    const startOfDay = new Date(selectedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(selectedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Query existing appointments for this doctor on this date at this location
+    const appointmentQuery = {
+      doctor_id: parseInt(doctor_id),
+      appointment_time: {$gte: startOfDay, $lte: endOfDay},
+      status: {$ne: 'cancelled'}
+    };
+
+    if (location_type === 'hospital') {
+      appointmentQuery.hospital_id = parseInt(location_id);
+      appointmentQuery.consultation_place = 'hospital';
+    } else {
+      appointmentQuery.consultation_place = 'clinic';
+    }
+
+    const existingAppointments =
+        await Appointment.find(appointmentQuery).lean();
+
+    // Count bookings per time slot
+    const bookingCount = {};
+    for (const apt of existingAppointments) {
+      const aptTime = new Date(apt.appointment_time);
+      const timeKey = `${String(aptTime.getHours()).padStart(2, '0')}:${
+          String(aptTime.getMinutes()).padStart(2, '0')}`;
+      bookingCount[timeKey] = (bookingCount[timeKey] || 0) + 1;
+    }
+
+    // Get hospital rush level if applicable
+    let rushLevel = 'low';
+    if (location_type === 'hospital') {
+      const hospital =
+          await Hospital.findOne({hospital_id: parseInt(location_id)}).lean();
+      if (hospital) {
+        rushLevel = hospital.rush_level || 'low';
+      }
+    }
+
+    // Build slots with availability status
+    const slots = timeSlots.map(time => {
+      const booked = bookingCount[time] || 0;
+      const available = maxPatients - booked;
+
+      let status;
+      if (booked >= maxPatients) {
+        status = 'booked';
+      } else if (rushLevel === 'high' || booked >= maxPatients * 0.75) {
+        status = 'rush_hours';
+      } else if (booked >= maxPatients * 0.5) {
+        status = 'few_slots';
+      } else {
+        status = 'available';
+      }
+
+      return {
+        time: time,
+        status: status,
+        booked: booked,
+        max: maxPatients,
+        available: available
+      };
+    });
+
+    return res.json({
+      status: 'success',
+      doctor_id: parseInt(doctor_id),
+      date: date,
+      day: dayOfWeek,
+      location: {
+        type: location_type,
+        id: parseInt(location_id),
+        name: locationSchedule.location_name
+      },
+      schedule: {
+        start: daySchedule.start,
+        end: daySchedule.end,
+        slot_duration: daySchedule.slot_duration || 30
+      },
+      slots: slots
+    });
+
+  } catch (error) {
+    console.error('Get doctor slots error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
+// POST /doctor/appointment/book - Book an appointment (new endpoint for booking
+// flow)
+const bookAppointment = async (req, res) => {
+  try {
+    const {
+      patient_id,
+      doctor_id,
+      location_type,
+      location_id,
+      appointment_date,
+      appointment_time
+    } = req.body;
+
+    // Validate required fields
+    const missing = [];
+    if (!patient_id) missing.push('patient_id');
+    if (!doctor_id) missing.push('doctor_id');
+    if (!location_type) missing.push('location_type');
+    if (!location_id) missing.push('location_id');
+    if (!appointment_date) missing.push('appointment_date');
+    if (!appointment_time) missing.push('appointment_time');
+
+    if (missing.length > 0) {
+      return res.json({status: 'fail', message: 'missing_fields', missing});
+    }
+
+    if (!['hospital', 'clinic'].includes(location_type)) {
+      return res.json({status: 'fail', message: 'invalid_location_type'});
+    }
+
+    // Validate patient exists
+    const patient = await User.findOne({user_id: patient_id});
+    if (!patient) {
+      return res.json({status: 'fail', message: 'patient_not_found'});
+    }
+
+    // Validate doctor exists
+    const doctor = await Doctor.findOne({doctor_id: doctor_id});
+    if (!doctor) {
+      return res.json({status: 'fail', message: 'doctor_not_found'});
+    }
+
+    // Build full appointment datetime
+    const [hours, minutes] = appointment_time.split(':').map(Number);
+    const appointmentDateTime = new Date(appointment_date);
+    appointmentDateTime.setHours(hours, minutes, 0, 0);
+
+    if (isNaN(appointmentDateTime.getTime())) {
+      return res.json({status: 'fail', message: 'invalid_date_or_time'});
+    }
+
+    if (appointmentDateTime <= new Date()) {
+      return res.json(
+          {status: 'fail', message: 'appointment_time_cannot_be_in_past'});
+    }
+
+    // Check slot availability
+    const schedule =
+        await DoctorSchedule.findOne({doctor_id: doctor_id}).lean();
+    if (!schedule) {
+      return res.json({status: 'fail', message: 'doctor_schedule_not_found'});
+    }
+
+    let locationSchedule;
+    if (location_type === 'hospital') {
+      locationSchedule = schedule.hospital_schedule ?
+          schedule.hospital_schedule[location_id.toString()] :
+          null;
+    } else {
+      locationSchedule = schedule.clinic_schedule ?
+          schedule.clinic_schedule[location_id.toString()] :
+          null;
+    }
+
+    if (!locationSchedule) {
+      return res.json({
+        status: 'fail',
+        message: 'doctor_does_not_consult_at_this_location'
+      });
+    }
+
+    const days = [
+      'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday',
+      'saturday'
+    ];
+    const dayOfWeek = days[appointmentDateTime.getDay()];
+    const daySchedule = locationSchedule.slots.find(s => s.day === dayOfWeek);
+
+    if (!daySchedule) {
+      return res.json(
+          {status: 'fail', message: 'doctor_not_available_on_this_day'});
+    }
+
+    const maxPatients = daySchedule.max_patients || 4;
+
+    // Count existing bookings for this slot
+    const startOfSlot = new Date(appointmentDateTime);
+    const endOfSlot = new Date(appointmentDateTime);
+    endOfSlot.setMinutes(
+        endOfSlot.getMinutes() + (daySchedule.slot_duration || 30));
+
+    const existingCount = await Appointment.countDocuments({
+      doctor_id: doctor_id,
+      appointment_time: appointmentDateTime,
+      status: {$ne: 'cancelled'}
+    });
+
+    if (existingCount >= maxPatients) {
+      return res.json({status: 'fail', message: 'slot_fully_booked'});
+    }
+
+    // Generate appointment_id
+    const appointment_id = await getNextAppointmentId();
+
+    // Get location name
+    let locationName = locationSchedule.location_name;
+
+    // Create appointment
+    const appointment = new Appointment({
+      appointment_id,
+      patient_id,
+      doctor_id,
+      hospital_id: location_type === 'hospital' ? parseInt(location_id) : null,
+      consultation_place: location_type,
+      clinic_name: location_type === 'clinic' ? locationName : null,
+      appointment_time: appointmentDateTime,
+      status: 'upcoming'
+    });
+
+    await appointment.save();
+
+    // Calculate token number (position in queue for that slot)
+    const tokenNumber = existingCount + 1;
+
+    return res.json({
+      status: 'success',
+      message: 'appointment_booked_successfully',
+      appointment: {
+        appointment_id: appointment.appointment_id,
+        doctor_id: doctor_id,
+        doctor_name: doctor.name ||
+            `Dr. ${doctor.first_name} ${doctor.last_name || ''}`.trim(),
+        location_type: location_type,
+        location_name: locationName,
+        date: appointment_date,
+        time: appointment_time,
+        token_number: tokenNumber
+      }
+    });
+
+  } catch (error) {
+    console.error('Book appointment error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
 module.exports = {
   createAppointment,
   getPatientAppointments,
   getDoctorAppointments,
-  listDoctors
+  listDoctors,
+  getBookingInfo,
+  getDoctorSchedule,
+  getDoctorSlots,
+  bookAppointment
 };

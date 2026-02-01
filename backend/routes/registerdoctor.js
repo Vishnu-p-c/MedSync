@@ -5,6 +5,7 @@ const User = require('../models/User');
 const DoctorDetails = require('../models/Doctor');
 const Hospital = require('../models/Hospital');
 const Clinic = require('../models/Clinic');
+const DoctorSchedule = require('../models/DoctorSchedule');
 
 // Levenshtein distance for fuzzy matching
 const levenshteinDistance = (str1, str2) => {
@@ -240,6 +241,104 @@ router.post('/', async (req, res) => {
 
     await doctorDetails.save();
 
+    // Auto-create DoctorSchedule using hospital/clinic default schedules
+    const hospitalScheduleMap = {};
+    const clinicScheduleMap = {};
+
+    // Build hospital schedules from matched hospitals using their
+    // default_schedule
+    for (const hospId of matchedHospitalIds) {
+      const hospital = allHospitals.find(h => h.hospital_id === hospId);
+      if (hospital) {
+        // Use hospital's default_schedule or fallback to standard weekday slots
+        const defaultSlots =
+            hospital.default_schedule && hospital.default_schedule.length > 0 ?
+            hospital.default_schedule.map(
+                s => ({
+                  day: s.day,
+                  start: s.start,
+                  end: s.end,
+                  slot_duration: s.slot_duration || 30,
+                  max_patients: s.max_patients || 4
+                })) :
+            [
+              {
+                day: 'monday',
+                start: '09:00',
+                end: '13:00',
+                slot_duration: 30,
+                max_patients: 4
+              },
+              {
+                day: 'wednesday',
+                start: '09:00',
+                end: '13:00',
+                slot_duration: 30,
+                max_patients: 4
+              },
+              {
+                day: 'friday',
+                start: '09:00',
+                end: '13:00',
+                slot_duration: 30,
+                max_patients: 4
+              }
+            ];
+
+        hospitalScheduleMap[hospId.toString()] = {
+          location_name: hospital.name,
+          slots: defaultSlots
+        };
+      }
+    }
+
+    // Build clinic schedules from matched clinics using their default_schedule
+    for (const clinicId of matchedClinicIds) {
+      const clinic = allClinics.find(c => c.clinic_id === clinicId);
+      if (clinic) {
+        // Use clinic's default_schedule or fallback to evening/weekend slots
+        const defaultSlots =
+            clinic.default_schedule && clinic.default_schedule.length > 0 ?
+            clinic.default_schedule.map(s => ({
+                                          day: s.day,
+                                          start: s.start,
+                                          end: s.end,
+                                          slot_duration: s.slot_duration || 30,
+                                          max_patients: s.max_patients || 3
+                                        })) :
+            [
+              {
+                day: 'tuesday',
+                start: '17:00',
+                end: '20:00',
+                slot_duration: 30,
+                max_patients: 3
+              },
+              {
+                day: 'saturday',
+                start: '10:00',
+                end: '14:00',
+                slot_duration: 30,
+                max_patients: 3
+              }
+            ];
+
+        clinicScheduleMap[clinicId.toString()] = {
+          location_name: clinic.name,
+          slots: defaultSlots
+        };
+      }
+    }
+
+    // Create DoctorSchedule entry
+    const doctorSchedule = new DoctorSchedule({
+      doctor_id: doctorDetails.doctor_id,
+      hospital_schedule: hospitalScheduleMap,
+      clinic_schedule: clinicScheduleMap
+    });
+
+    await doctorSchedule.save();
+
     return res.json({
       status: 'success',
       user_id: newUser.user_id,
@@ -247,7 +346,8 @@ router.post('/', async (req, res) => {
       matched_hospitals: matchedHospitalNames,
       unmatched_hospitals: unmatchedHospitals,
       matched_clinics: matchedClinicNames,
-      unmatched_clinics: unmatchedClinics
+      unmatched_clinics: unmatchedClinics,
+      schedule_created: true
     });
   } catch (err) {
     console.error('Register doctor error:', err);
