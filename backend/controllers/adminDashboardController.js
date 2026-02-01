@@ -2,6 +2,7 @@ const Doctor = require('../models/Doctor');
 const HospitalAdmin = require('../models/HospitalAdmin');
 const Equipment = require('../models/Equipment');
 const Stock = require('../models/Stock');
+const Appointment = require('../models/Appointment');
 
 // Controller to get the number of doctors in the admin's hospital
 exports.getDoctorsCount = async (req, res) => {
@@ -169,4 +170,87 @@ exports.getCriticalAlerts = async (req, res) => {
             error: error.message 
         });
     }
-}
+};
+
+/**
+ * Get patient inflow data for the last 24 hours
+ * Returns hourly counts of appointments/patient visits
+ */
+exports.getPatientInflow = async (req, res) => {
+    try {
+        const { admin_id } = req.query;
+
+        if (!admin_id) {
+            return res.status(400).json({ 
+                status: 'fail', 
+                message: 'admin_id is required' 
+            });
+        }
+
+        // Find which hospital this admin manages
+        const adminRecord = await HospitalAdmin.findOne({ admin_id: parseInt(admin_id) });
+
+        // Build match stage for aggregation
+        const matchStage = {};
+        
+        if (adminRecord && adminRecord.hospital_id) {
+            matchStage.hospital_id = adminRecord.hospital_id;
+        }
+
+        // Get appointments from the last 24 hours
+        const twentyFourHoursAgo = new Date();
+        twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+        matchStage.created_at = { $gte: twentyFourHoursAgo };
+
+        // Aggregate appointments by hour
+        const hourlyData = await Appointment.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: { $hour: '$created_at' },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Create a full 24-hour array with zeros for missing hours
+        const currentHour = new Date().getHours();
+        const inflowData = [];
+        
+        // Build array from 24 hours ago to current hour
+        for (let i = 0; i < 24; i++) {
+            const hour = (currentHour - 23 + i + 24) % 24;
+            const found = hourlyData.find(item => item._id === hour);
+            inflowData.push({
+                hour: hour,
+                label: `${hour.toString().padStart(2, '0')}:00`,
+                count: found ? found.count : 0
+            });
+        }
+
+        // Calculate summary statistics
+        const totalInflow = inflowData.reduce((sum, item) => sum + item.count, 0);
+        const maxInflow = Math.max(...inflowData.map(item => item.count));
+        const avgInflow = totalInflow / 24;
+
+        return res.json({
+            status: 'success',
+            data: inflowData,
+            summary: {
+                total: totalInflow,
+                max: maxInflow,
+                average: Math.round(avgInflow * 10) / 10
+            },
+            timestamp: new Date()
+        });
+
+    } catch (error) {
+        console.error('Error getting patient inflow:', error);
+        return res.status(500).json({ 
+            status: 'error', 
+            message: 'Internal server error',
+            error: error.message 
+        });
+    }
+};
