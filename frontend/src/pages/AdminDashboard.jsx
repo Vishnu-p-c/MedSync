@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import SideNav from "../components/SideNav";
 import GlassSurface from "../components/GlassSurface/GlassSurface";
 import axiosInstance from "../utils/axiosInstance";
+import { getSosSummary } from "../api/sosApi";
 
 function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -11,6 +12,8 @@ function AdminDashboard() {
   const [doctorsLoading, setDoctorsLoading] = useState(true);
   const [rushLevel, setRushLevel] = useState('LOW');
   const [rushLoading, setRushLoading] = useState(true);
+  const [sosData, setSosData] = useState({ total: 0, pending: 0, inProgress: 0, assigned: 0 });
+  const [sosLoading, setSosLoading] = useState(true);
   const userName = localStorage.getItem('userName') || 'Admin';
   const userId = localStorage.getItem('userId'); // This is the admin_id
 
@@ -75,24 +78,47 @@ function AdminDashboard() {
     }
   }, [userId]);
 
+  // Fetch SOS summary with real-time polling
+  const fetchSosSummary = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const result = await getSosSummary(userId);
+      if (result.success) {
+        setSosData({
+          total: result.data.total,
+          pending: result.data.pending,
+          inProgress: result.data.inProgress,
+          assigned: result.data.assigned
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching SOS summary:', error);
+    } finally {
+      setSosLoading(false);
+    }
+  }, [userId]);
+
   // Initial fetch and polling for real-time updates (every 30 seconds)
   useEffect(() => {
     fetchRushLevel();
+    fetchSosSummary();
 
     // Set up polling interval for real-time updates
     const pollInterval = setInterval(() => {
       fetchRushLevel();
+      fetchSosSummary();
     }, 30000); // Poll every 30 seconds
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval);
-  }, [fetchRushLevel]);
+  }, [fetchRushLevel, fetchSosSummary]);
 
   // Sample data - replace with API calls
   const dashboardData = {
     rushLevel: rushLevel,
     doctorsOnDuty: { current: 120, total: 150 },
-    sosRequests: { total: 120, pending: 5, inProgress: 120, assigned: 3 },
+    sosRequests: sosData,
     activeAmbulances: 8,
     criticalAlerts: [
       { id: 1, type: 'Low Stock', item: 'Epinephrine (Critical)', message: 'Critical message' },
@@ -248,7 +274,7 @@ function AdminDashboard() {
               </div>
             </GlassSurface>
 
-            {/* Doctors on Duty & SOS Requests */}
+            {/* Doctors on Duty*/}
             <GlassSurface
               opacity={0.9}
               backgroundOpacity={0.1}
@@ -318,20 +344,29 @@ function AdminDashboard() {
               <p className="text-white font-semibold mb-3">SOS Requests</p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-yellow-500/20 rounded-lg p-2 text-center">
-                  <p className="text-2xl font-bold text-yellow-400">{dashboardData.sosRequests.pending}</p>
-                  <p className="text-xs text-yellow-400">Pending</p>
-                </div>
-                <div className="bg-red-500/20 rounded-lg p-2 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-1zm0-4V7h2v6h-2z"/>
-                  </svg>
+                  <p className="text-2xl font-bold text-yellow-400">
+                    {sosLoading ? '...' : sosData.total}
+                  </p>
+                  <p className="text-xs text-yellow-400">Total</p>
                 </div>
                 <div className="bg-blue-500/20 rounded-lg p-2 text-center">
-                  <p className="text-2xl font-bold text-blue-400">{dashboardData.sosRequests.inProgress}</p>
+                  <p className="text-2xl font-bold text-blue-400">
+                    {sosLoading ? '...' : sosData.inProgress}
+                  </p>
                   <p className="text-xs text-blue-400">In Progress</p>
                 </div>
+                <div className="bg-red-500/20 rounded-lg p-2 text-center">
+                  <p className="text-2xl font-bold text-red-400">
+                    {sosLoading ? '...' : sosData.pending}
+                  </p>
+                  <p className="text-xs text-red-400">Pending</p>
+                </div>
+               
+              
                 <div className="bg-green-500/20 rounded-lg p-2 text-center">
-                  <p className="text-2xl font-bold text-green-400">{dashboardData.sosRequests.assigned}</p>
+                  <p className="text-2xl font-bold text-green-400">
+                    {sosLoading ? '...' : sosData.assigned}
+                  </p>
                   <p className="text-xs text-green-400">Assigned</p>
                 </div>
               </div>

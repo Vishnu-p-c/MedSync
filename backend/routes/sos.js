@@ -5,9 +5,27 @@ const SosRequest = require('../models/SosRequest');
 const AmbulanceDriver = require('../models/AmbulanceDriver');
 const AmbulanceLiveLocation = require('../models/AmbulanceLiveLocation');
 const AmbulanceAssignment = require('../models/AmbulanceAssignment');
+const sosController = require('../controllers/sosController');
 // const Hospital = require('../models/Hospital'); // optional for future use
 const https = require('https');
 const {URL} = require('url');
+
+// ============================================
+// Admin Dashboard Routes (Controller-based)
+// ============================================
+
+// GET /sos/summary - Get SOS requests summary counts
+router.get('/summary', sosController.getSosSummary);
+
+// GET /sos/recent - Get recent SOS requests list
+router.get('/recent', sosController.getRecentSosRequests);
+
+// GET /sos/severity - Get SOS breakdown by severity
+router.get('/severity', sosController.getSosBySeverity);
+
+// ============================================
+// Existing Routes
+// ============================================
 
 // Helper: allowed severity values come from the schema
 const ALLOWED_SEVERITIES =
