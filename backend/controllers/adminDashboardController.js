@@ -1,5 +1,7 @@
 const Doctor = require('../models/Doctor');
 const HospitalAdmin = require('../models/HospitalAdmin');
+const Equipment = require('../models/Equipment');
+const Stock = require('../models/Stock');
 
 // Controller to get the number of doctors in the admin's hospital
 exports.getDoctorsCount = async (req, res) => {
@@ -62,29 +64,105 @@ exports.getDoctorsCount = async (req, res) => {
             });
         }
 
-        // Get detailed doctor information for debugging
-        let doctorsList;
-        if (facilityType === 'hospital') {
-            doctorsList = await Doctor.find({ 
-                hospital_id: { $in: [facilityId] }
-            }).select('doctor_id name department is_available hospital_id');
-        } else {
-            doctorsList = await Doctor.find({ 
-                clinic_id: { $in: [facilityId] }
-            }).select('doctor_id name department is_available clinic_id');
-        }
-
         return res.json({
             status: 'success',
             facilityId: facilityId,
             facilityType: facilityType,
             totalDoctors: doctorsCount,
-            doctorsOnDuty: availableDoctorsCount,
-            doctors: doctorsList  // Include detailed list for verification
+            doctorsOnDuty: availableDoctorsCount
         });
 
     } catch (error) {
         console.error('Error getting doctors count:', error);
+        return res.status(500).json({ 
+            status: 'error', 
+            message: 'Internal server error',
+            error: error.message 
+        });
+    }
+}
+
+// Controller to get critical alerts (equipment under maintenance/down and low stock)
+exports.getCriticalAlerts = async (req, res) => {
+    try {
+        const { admin_id } = req.query;
+
+        if (!admin_id) {
+            return res.status(400).json({ 
+                status: 'fail', 
+                message: 'admin_id is required' 
+            });
+        }
+
+        // Find which hospital this admin manages
+        const adminRecord = await HospitalAdmin.findOne({ admin_id: parseInt(admin_id) });
+
+        let hospitalFilter = {};
+        if (adminRecord && adminRecord.hospital_id) {
+            hospitalFilter = { hospital_id: adminRecord.hospital_id };
+        }
+
+        // Fetch equipment that is under maintenance or down
+        const equipmentAlerts = await Equipment.find({
+            ...hospitalFilter,
+            status: { $in: ['maintenance', 'down'] }
+        }).sort({ last_updated: -1 }).limit(10);
+
+        // Fetch low stock items (quantity <= 10)
+        const lowStockAlerts = await Stock.find({
+            ...hospitalFilter,
+            quantity: { $lte: 10 }
+        }).sort({ quantity: 1 }).limit(10);
+
+        // Format alerts for frontend
+        const alerts = [];
+
+        // Add equipment alerts
+        equipmentAlerts.forEach(equipment => {
+            alerts.push({
+                id: `eq-${equipment.equipment_id}`,
+                type: equipment.status === 'down' ? 'Equipment Fault' : 'Under Maintenance',
+                item: equipment.equipment_name,
+                message: equipment.status === 'down' 
+                    ? 'Equipment is not operational' 
+                    : 'Equipment is under maintenance',
+                severity: equipment.status === 'down' ? 'critical' : 'warning',
+                category: 'equipment',
+                lastUpdated: equipment.last_updated
+            });
+        });
+
+        // Add low stock alerts
+        lowStockAlerts.forEach(stock => {
+            const isCritical = stock.quantity <= 5;
+            alerts.push({
+                id: `st-${stock.stock_id}`,
+                type: 'Low Stock',
+                item: `${stock.item_name} (${isCritical ? 'Critical' : 'Low'})`,
+                message: `Only ${stock.quantity} units remaining`,
+                severity: isCritical ? 'critical' : 'warning',
+                category: 'stock',
+                quantity: stock.quantity,
+                lastUpdated: stock.last_updated
+            });
+        });
+
+        // Sort by severity (critical first) and then by lastUpdated
+        alerts.sort((a, b) => {
+            if (a.severity === 'critical' && b.severity !== 'critical') return -1;
+            if (a.severity !== 'critical' && b.severity === 'critical') return 1;
+            return new Date(b.lastUpdated) - new Date(a.lastUpdated);
+        });
+
+        return res.json({
+            status: 'success',
+            data: alerts,
+            count: alerts.length,
+            timestamp: new Date()
+        });
+
+    } catch (error) {
+        console.error('Error getting critical alerts:', error);
         return res.status(500).json({ 
             status: 'error', 
             message: 'Internal server error',

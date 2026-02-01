@@ -16,6 +16,8 @@ function AdminDashboard() {
   const [sosLoading, setSosLoading] = useState(true);
   const [sosTrendData, setSosTrendData] = useState([]);
   const [sosTrendLoading, setSosTrendLoading] = useState(true);
+  const [criticalAlerts, setCriticalAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
   const userName = localStorage.getItem('userName') || 'Admin';
   const userId = localStorage.getItem('userId'); // This is the admin_id
 
@@ -117,22 +119,40 @@ function AdminDashboard() {
     }
   }, [userId]);
 
+  // Fetch critical alerts (equipment maintenance and low stock)
+  const fetchCriticalAlerts = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const response = await axiosInstance.get(`/admin/dashboard/critical-alerts?admin_id=${userId}`);
+      if (response.data.status === 'success') {
+        setCriticalAlerts(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching critical alerts:', error);
+    } finally {
+      setAlertsLoading(false);
+    }
+  }, [userId]);
+
   // Initial fetch and polling for real-time updates (every 30 seconds)
   useEffect(() => {
     fetchRushLevel();
     fetchSosSummary();
     fetchSosTrend();
+    fetchCriticalAlerts();
 
     // Set up polling interval for real-time updates
     const pollInterval = setInterval(() => {
       fetchRushLevel();
       fetchSosSummary();
       fetchSosTrend();
+      fetchCriticalAlerts();
     }, 30000); // Poll every 30 seconds
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval);
-  }, [fetchRushLevel, fetchSosSummary, fetchSosTrend]);
+  }, [fetchRushLevel, fetchSosSummary, fetchSosTrend, fetchCriticalAlerts]);
 
   // Sample data - replace with API calls
   const dashboardData = {
@@ -140,10 +160,6 @@ function AdminDashboard() {
     doctorsOnDuty: { current: 120, total: 150 },
     sosRequests: sosData,
     activeAmbulances: 8,
-    criticalAlerts: [
-      { id: 1, type: 'Low Stock', item: 'Epinephrine (Critical)', message: 'Critical message' },
-      { id: 2, type: 'Equipment Fault', item: 'Ventilator A4 (ICU)', message: 'Critical message' }
-    ],
     patientInflow: [25, 30, 45, 55, 40, 50, 60, 55, 65, 70, 75, 80, 85]
   };
 
@@ -406,22 +422,37 @@ function AdminDashboard() {
               <div className="flex items-center gap-2 mb-4">
                 <h3 className="text-white font-semibold">Critical Alerts</h3>
                 <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {dashboardData.criticalAlerts.length}
+                  {alertsLoading ? '...' : criticalAlerts.length}
                 </span>
               </div>
-              <div className="space-y-3">
-                {dashboardData.criticalAlerts.map((alert, index) => (
-                  <div key={alert.id} className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
-                    <div className="w-6 h-6 bg-red-500/20 rounded-full flex items-center justify-center text-red-400 text-sm font-bold">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="text-yellow-400 font-medium text-sm">{alert.type}</p>
-                      <p className="text-white text-sm">{alert.item}</p>
-                      <p className="text-white/40 text-xs">{alert.message}</p>
+              <div className="space-y-3 max-h-48 overflow-y-auto">
+                {alertsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <span className="text-white/60">Loading alerts...</span>
+                  </div>
+                ) : criticalAlerts.length === 0 ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="text-center">
+                      <svg className="w-10 h-10 mx-auto text-green-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-white/60 text-sm">No critical alerts</span>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  criticalAlerts.map((alert, index) => (
+                    <div key={alert.id} className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+                      <div className={`w-6 h-6 ${alert.severity === 'critical' ? 'bg-red-500/20' : 'bg-yellow-500/20'} rounded-full flex items-center justify-center ${alert.severity === 'critical' ? 'text-red-400' : 'text-yellow-400'} text-sm font-bold`}>
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`${alert.severity === 'critical' ? 'text-red-400' : 'text-yellow-400'} font-medium text-sm`}>{alert.type}</p>
+                        <p className="text-white text-sm truncate">{alert.item}</p>
+                        <p className="text-white/40 text-xs">{alert.message}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </GlassSurface>
 
