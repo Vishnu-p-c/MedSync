@@ -78,3 +78,27 @@ export const getSosBySeverity = async (adminId) => {
         };
     }
 };
+
+/**
+ * Get SOS trend data (hourly counts for last 24 hours)
+ * @param {string|number} adminId - The admin's user ID
+ * @returns {Promise<Object>} - Array of { hour, label, count }
+ */
+export const getSosTrend = async (adminId) => {
+    try {
+        const response = await axiosInstance.get(`/sos/trend?admin_id=${adminId}`);
+        if (response.data.status === 'success') {
+            return {
+                success: true,
+                data: response.data.data
+            };
+        }
+        return { success: false, error: response.data.message };
+    } catch (error) {
+        console.error('Error fetching SOS trend:', error);
+        return {
+            success: false,
+            error: error.response?.data?.message || 'Network error'
+        };
+    }
+};

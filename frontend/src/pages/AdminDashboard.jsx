@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import SideNav from "../components/SideNav";
 import GlassSurface from "../components/GlassSurface/GlassSurface";
 import axiosInstance from "../utils/axiosInstance";
-import { getSosSummary } from "../api/sosApi";
+import { getSosSummary, getSosTrend } from "../api/sosApi";
 
 function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,6 +14,8 @@ function AdminDashboard() {
   const [rushLoading, setRushLoading] = useState(true);
   const [sosData, setSosData] = useState({ total: 0, pending: 0, inProgress: 0, assigned: 0 });
   const [sosLoading, setSosLoading] = useState(true);
+  const [sosTrendData, setSosTrendData] = useState([]);
+  const [sosTrendLoading, setSosTrendLoading] = useState(true);
   const userName = localStorage.getItem('userName') || 'Admin';
   const userId = localStorage.getItem('userId'); // This is the admin_id
 
@@ -99,20 +101,38 @@ function AdminDashboard() {
     }
   }, [userId]);
 
+  // Fetch SOS trend data for chart
+  const fetchSosTrend = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const result = await getSosTrend(userId);
+      if (result.success) {
+        setSosTrendData(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching SOS trend:', error);
+    } finally {
+      setSosTrendLoading(false);
+    }
+  }, [userId]);
+
   // Initial fetch and polling for real-time updates (every 30 seconds)
   useEffect(() => {
     fetchRushLevel();
     fetchSosSummary();
+    fetchSosTrend();
 
     // Set up polling interval for real-time updates
     const pollInterval = setInterval(() => {
       fetchRushLevel();
       fetchSosSummary();
+      fetchSosTrend();
     }, 30000); // Poll every 30 seconds
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval);
-  }, [fetchRushLevel, fetchSosSummary]);
+  }, [fetchRushLevel, fetchSosSummary, fetchSosTrend]);
 
   // Sample data - replace with API calls
   const dashboardData = {
@@ -124,8 +144,7 @@ function AdminDashboard() {
       { id: 1, type: 'Low Stock', item: 'Epinephrine (Critical)', message: 'Critical message' },
       { id: 2, type: 'Equipment Fault', item: 'Ventilator A4 (ICU)', message: 'Critical message' }
     ],
-    patientInflow: [25, 30, 45, 55, 40, 50, 60, 55, 65, 70, 75, 80, 85],
-    sosTrend: [10, 12, 15, 13, 18, 15, 20, 17, 22, 18, 20, 15, 18]
+    patientInflow: [25, 30, 45, 55, 40, 50, 60, 55, 65, 70, 75, 80, 85]
   };
 
   // Rush level color
@@ -455,28 +474,59 @@ function AdminDashboard() {
               borderRadius={16}
               className="p-4"
             >
-              <h3 className="text-white font-semibold mb-4">SOS Trend</h3>
-              <div className="h-40 flex items-end justify-between gap-1 px-2">
-                {dashboardData.sosTrend.map((value, index) => (
-                  <div
-                    key={index}
-                    className="flex-1 bg-red-500 rounded-t"
-                    style={{ height: `${(value / 25) * 100}%`, minWidth: '8px', maxWidth: '20px' }}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-between text-white/40 text-xs mt-2 px-2">
-                <span>8</span>
-                <span>12</span>
-                <span>16</span>
-                <span>20</span>
-              </div>
+              <h3 className="text-white font-semibold mb-4">SOS Trend (Last 24h)</h3>
+              {sosTrendLoading ? (
+                <div className="h-40 flex items-center justify-center">
+                  <span className="text-white/60">Loading...</span>
+                </div>
+              ) : (
+                <>
+                  <div className="h-40 flex items-end justify-between gap-1 px-2">
+                    {sosTrendData.length > 0 ? (
+                      sosTrendData.map((item, index) => {
+                        const maxCount = Math.max(...sosTrendData.map(d => d.count), 1);
+                        return (
+                          <div
+                            key={index}
+                            className="flex-1 bg-red-500 rounded-t hover:bg-red-400 transition-colors cursor-pointer group relative"
+                            style={{ 
+                              height: `${(item.count / maxCount) * 100}%`, 
+                              minWidth: '8px', 
+                              maxWidth: '20px',
+                              minHeight: item.count > 0 ? '4px' : '0px'
+                            }}
+                            title={`${item.label}: ${item.count} requests`}
+                          >
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                              {item.count}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-white/40">
+                        No data available
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-between text-white/40 text-xs mt-2 px-2">
+                    {sosTrendData.length > 0 && (
+                      <>
+                        <span>{sosTrendData[0]?.hour}:00</span>
+                        <span>{sosTrendData[Math.floor(sosTrendData.length / 3)]?.hour}:00</span>
+                        <span>{sosTrendData[Math.floor(sosTrendData.length * 2 / 3)]?.hour}:00</span>
+                        <span>{sosTrendData[sosTrendData.length - 1]?.hour}:00</span>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </GlassSurface>
           </div>
 
           {/* Third Row - More Info */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Critical Alerts List */}
+            {/* Recent Activity */}
             <GlassSurface
               opacity={0.9}
               backgroundOpacity={0.1}
@@ -485,31 +535,60 @@ function AdminDashboard() {
               borderRadius={16}
               className="p-4"
             >
-              <h3 className="text-white font-semibold mb-4">Critical Alerts</h3>
+              <h3 className="text-white font-semibold mb-4">Recent Activity</h3>
               <div className="space-y-3">
-                {dashboardData.criticalAlerts.map((alert) => (
-                  <div key={alert.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-orange-400" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-1zm0-4V7h2v6h-2z"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-yellow-400 font-medium">{alert.type}</p>
-                        <p className="text-white/60 text-sm">{alert.item}</p>
-                        <p className="text-white/40 text-xs">{alert.message}</p>
-                      </div>
-                    </div>
-                    <svg className="w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                  <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                ))}
+                  <div className="flex-1">
+                    <p className="text-white font-medium text-sm">Patient discharged</p>
+                    <p className="text-white/40 text-xs">Room 204 - Ward B</p>
+                  </div>
+                  <span className="text-white/40 text-xs">5m ago</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-medium text-sm">New patient admitted</p>
+                    <p className="text-white/40 text-xs">Emergency - ICU</p>
+                  </div>
+                  <span className="text-white/40 text-xs">12m ago</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                  <div className="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-medium text-sm">Shift change completed</p>
+                    <p className="text-white/40 text-xs">Night shift started</p>
+                  </div>
+                  <span className="text-white/40 text-xs">30m ago</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                  <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-medium text-sm">Lab results ready</p>
+                    <p className="text-white/40 text-xs">Patient #1847 - Blood work</p>
+                  </div>
+                  <span className="text-white/40 text-xs">45m ago</span>
+                </div>
               </div>
             </GlassSurface>
 
-            {/* SOS Requests Detailed */}
+            {/* Hospital Quick Stats */}
             <GlassSurface
               opacity={0.9}
               backgroundOpacity={0.1}
@@ -518,35 +597,67 @@ function AdminDashboard() {
               borderRadius={16}
               className="p-4"
             >
-              <h3 className="text-white font-semibold mb-4">SOS Requests</h3>
-              <div className="flex items-center gap-6 mb-4">
-                <div>
-                  <p className="text-4xl font-bold text-white">{dashboardData.sosRequests.total}</p>
-                  <p className="text-white/60 text-sm">Total</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-red-400">{dashboardData.sosRequests.pending}</p>
-                  <p className="text-red-400 text-xs">Pending</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-400">{dashboardData.sosRequests.inProgress}</p>
-                  <p className="text-blue-400 text-xs">In Progress</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-400">{dashboardData.sosRequests.assigned}</p>
-                  <p className="text-green-400 text-xs">Assigned</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full flex items-center justify-center">
-                    <span className="text-[8px] text-black">!</span>
+              <h3 className="text-white font-semibold mb-4">Hospital Quick Stats</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/5 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white">42</p>
+                      <p className="text-white/40 text-xs">Available Beds</p>
+                    </div>
                   </div>
-                  <span className="text-white/60">Pending</span>
+                  <div className="w-full bg-white/10 rounded-full h-2">
+                    <div className="bg-cyan-500 h-2 rounded-full" style={{ width: '70%' }}></div>
+                  </div>
+                  <p className="text-white/40 text-xs mt-1">70% Occupancy</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  <span className="text-white/60">In Progress</span>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white">8</p>
+                      <p className="text-white/40 text-xs">ICU Beds Free</p>
+                    </div>
+                  </div>
+                  <div className="w-full bg-white/10 rounded-full h-2">
+                    <div className="bg-pink-500 h-2 rounded-full" style={{ width: '40%' }}></div>
+                  </div>
+                  <p className="text-white/40 text-xs mt-1">60% Occupancy</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white">156</p>
+                      <p className="text-white/40 text-xs">Total Patients</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white">23</p>
+                      <p className="text-white/40 text-xs">Avg Wait Time (min)</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </GlassSurface>
