@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import SideNav from "../components/SideNav";
 import GlassSurface from "../components/GlassSurface/GlassSurface";
 import axiosInstance from "../utils/axiosInstance";
@@ -9,6 +9,8 @@ function AdminDashboard() {
   const [ambulanceLoading, setAmbulanceLoading] = useState(true);
   const [doctorsData, setDoctorsData] = useState({ totalDoctors: 0, doctorsOnDuty: 0 });
   const [doctorsLoading, setDoctorsLoading] = useState(true);
+  const [rushLevel, setRushLevel] = useState('LOW');
+  const [rushLoading, setRushLoading] = useState(true);
   const userName = localStorage.getItem('userName') || 'Admin';
   const userId = localStorage.getItem('userId'); // This is the admin_id
 
@@ -57,9 +59,38 @@ function AdminDashboard() {
     fetchDoctorsCount();
   }, [userId]);
 
+  // Fetch rush level with real-time polling
+  const fetchRushLevel = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const response = await axiosInstance.get(`/admin/rush/level?admin_id=${userId}`);
+      if (response.data.status === 'success') {
+        setRushLevel(response.data.rushLevel);
+      }
+    } catch (error) {
+      console.error('Error fetching rush level:', error);
+    } finally {
+      setRushLoading(false);
+    }
+  }, [userId]);
+
+  // Initial fetch and polling for real-time updates (every 30 seconds)
+  useEffect(() => {
+    fetchRushLevel();
+
+    // Set up polling interval for real-time updates
+    const pollInterval = setInterval(() => {
+      fetchRushLevel();
+    }, 30000); // Poll every 30 seconds
+
+    // Cleanup interval on unmount
+    return () => clearInterval(pollInterval);
+  }, [fetchRushLevel]);
+
   // Sample data - replace with API calls
   const dashboardData = {
-    rushLevel: 'CRITICAL',
+    rushLevel: rushLevel,
     doctorsOnDuty: { current: 120, total: 150 },
     sosRequests: { total: 120, pending: 5, inProgress: 120, assigned: 3 },
     activeAmbulances: 8,
@@ -78,6 +109,36 @@ function AdminDashboard() {
       case 'HIGH': return 'text-orange-500';
       case 'MEDIUM': return 'text-yellow-500';
       default: return 'text-green-500';
+    }
+  };
+
+  // Rush level background color
+  const getRushBgColor = (level) => {
+    switch (level) {
+      case 'CRITICAL': return 'bg-red-500/20';
+      case 'HIGH': return 'bg-orange-500/20';
+      case 'MEDIUM': return 'bg-yellow-500/20';
+      default: return 'bg-green-500/20';
+    }
+  };
+
+  // Get needle rotation angle based on rush level (from -90 to 90 degrees)
+  const getNeedleRotation = (level) => {
+    switch (level) {
+      case 'CRITICAL': return 60;  // Far right (red zone)
+      case 'HIGH': return 30;      // Right-center (orange zone)
+      case 'MEDIUM': return -15;   // Center-left (yellow zone)
+      default: return -60;         // Far left (green zone)
+    }
+  };
+
+  // Get needle color based on rush level
+  const getNeedleColor = (level) => {
+    switch (level) {
+      case 'CRITICAL': return '#ef4444';
+      case 'HIGH': return '#f97316';
+      case 'MEDIUM': return '#eab308';
+      default: return '#22c55e';
     }
   };
 
@@ -135,47 +196,54 @@ function AdminDashboard() {
               <div className="flex flex-col items-center">
                 {/* Gauge */}
                 <div className="relative w-32 h-16 mb-2">
-                  <svg viewBox="0 0 100 50" className="w-full h-full">
-                    {/* Background arc */}
-                    <path
-                      d="M 10 50 A 40 40 0 0 1 90 50"
-                      fill="none"
-                      stroke="#1e3a5f"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                    />
-                    {/* Colored arc */}
-                    <path
-                      d="M 10 50 A 40 40 0 0 1 90 50"
-                      fill="none"
-                      stroke="url(#rushGradient)"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      strokeDasharray="126"
-                      strokeDashoffset="25"
-                    />
-                    <defs>
-                      <linearGradient id="rushGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="50%" stopColor="#eab308" />
-                        <stop offset="100%" stopColor="#ef4444" />
-                      </linearGradient>
-                    </defs>
-                    {/* Needle */}
-                    <line
-                      x1="50"
-                      y1="50"
-                      x2="50"
-                      y2="15"
-                      stroke="#ef4444"
-                      strokeWidth="2"
-                      transform="rotate(60 50 50)"
-                    />
-                    <circle cx="50" cy="50" r="4" fill="#ef4444" />
-                  </svg>
+                  {rushLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <span className="text-white/60">Loading...</span>
+                    </div>
+                  ) : (
+                    <svg viewBox="0 0 100 50" className="w-full h-full">
+                      {/* Background arc */}
+                      <path
+                        d="M 10 50 A 40 40 0 0 1 90 50"
+                        fill="none"
+                        stroke="#1e3a5f"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                      />
+                      {/* Colored arc */}
+                      <path
+                        d="M 10 50 A 40 40 0 0 1 90 50"
+                        fill="none"
+                        stroke="url(#rushGradient)"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        strokeDasharray="126"
+                        strokeDashoffset="25"
+                      />
+                      <defs>
+                        <linearGradient id="rushGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#22c55e" />
+                          <stop offset="50%" stopColor="#eab308" />
+                          <stop offset="100%" stopColor="#ef4444" />
+                        </linearGradient>
+                      </defs>
+                      {/* Needle - dynamically positioned based on rush level */}
+                      <line
+                        x1="50"
+                        y1="50"
+                        x2="50"
+                        y2="15"
+                        stroke={getNeedleColor(rushLevel)}
+                        strokeWidth="2"
+                        transform={`rotate(${getNeedleRotation(rushLevel)} 50 50)`}
+                        style={{ transition: 'transform 0.5s ease-in-out' }}
+                      />
+                      <circle cx="50" cy="50" r="4" fill={getNeedleColor(rushLevel)} />
+                    </svg>
+                  )}
                 </div>
-                <span className={`px-4 py-1 rounded-full text-sm font-bold bg-red-500/20 ${getRushColor(dashboardData.rushLevel)}`}>
-                  {dashboardData.rushLevel}
+                <span className={`px-4 py-1 rounded-full text-sm font-bold ${getRushBgColor(rushLevel)} ${getRushColor(rushLevel)}`}>
+                  {rushLoading ? '...' : rushLevel}
                 </span>
               </div>
             </GlassSurface>
