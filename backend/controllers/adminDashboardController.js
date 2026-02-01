@@ -62,12 +62,25 @@ exports.getDoctorsCount = async (req, res) => {
             });
         }
 
+        // Get detailed doctor information for debugging
+        let doctorsList;
+        if (facilityType === 'hospital') {
+            doctorsList = await Doctor.find({ 
+                hospital_id: { $in: [facilityId] }
+            }).select('doctor_id name department is_available hospital_id');
+        } else {
+            doctorsList = await Doctor.find({ 
+                clinic_id: { $in: [facilityId] }
+            }).select('doctor_id name department is_available clinic_id');
+        }
+
         return res.json({
             status: 'success',
             facilityId: facilityId,
             facilityType: facilityType,
             totalDoctors: doctorsCount,
-            doctorsOnDuty: availableDoctorsCount
+            doctorsOnDuty: availableDoctorsCount,
+            doctors: doctorsList  // Include detailed list for verification
         });
 
     } catch (error) {
