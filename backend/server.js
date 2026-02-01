@@ -12,6 +12,7 @@ const sosRoutes = require('./routes/sos');
 const hospitalRoutes = require('./routes/hospital');
 const doctorRoutes = require('./routes/doctorRoutes');
 const adminDashboardRoutes = require('./routes/adminDashboard');
+const rushRoutes = require('./routes/rushRoutes');
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use('/sos', sosRoutes);
 app.use('/hospital', hospitalRoutes);
 app.use('/doctor', doctorRoutes);
 app.use('/admin/dashboard', adminDashboardRoutes);
+app.use('/admin/rush', rushRoutes);
 // app.use("/api/doctors", require("./routes/doctorRoutes"));
 
 app.listen(5000, () => console.log('Server running on port 5000'));

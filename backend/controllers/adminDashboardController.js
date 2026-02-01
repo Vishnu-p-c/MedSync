@@ -36,14 +36,15 @@ exports.getDoctorsCount = async (req, res) => {
         }
 
         // Count doctors in this hospital/clinic
+        // Note: hospital_id and clinic_id are arrays in Doctor model, so use $in to check if facilityId is in the array
         let doctorsCount;
         if (facilityType === 'hospital') {
             doctorsCount = await Doctor.countDocuments({ 
-                hospital_id: facilityId 
+                hospital_id: { $in: [facilityId] }
             });
         } else {
             doctorsCount = await Doctor.countDocuments({ 
-                clinic_id: facilityId 
+                clinic_id: { $in: [facilityId] }
             });
         }
 
@@ -51,12 +52,12 @@ exports.getDoctorsCount = async (req, res) => {
         let availableDoctorsCount;
         if (facilityType === 'hospital') {
             availableDoctorsCount = await Doctor.countDocuments({ 
-                hospital_id: facilityId,
+                hospital_id: { $in: [facilityId] },
                 is_available: true 
             });
         } else {
             availableDoctorsCount = await Doctor.countDocuments({ 
-                clinic_id: facilityId,
+                clinic_id: { $in: [facilityId] },
                 is_available: true 
             });
         }
