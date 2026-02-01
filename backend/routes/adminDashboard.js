@@ -7,6 +7,12 @@ router.get('/hospital-info', adminDashboardController.getHospitalInfo);
 // Route to get doctors count for the logged-in admin's hospital
 router.get('/doctors-count', adminDashboardController.getDoctorsCount);
 
+// Route to get all doctors for the admin's hospital/clinic with search and filter
+router.get('/doctors', adminDashboardController.getDoctorsList);
+
+// Route to get unique departments for filtering
+router.get('/doctors/departments', adminDashboardController.getDepartments);
+
 // Route to get critical alerts (equipment under maintenance and low stock)
 router.get('/critical-alerts', adminDashboardController.getCriticalAlerts);
 

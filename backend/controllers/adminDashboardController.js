@@ -6,6 +6,7 @@ const Appointment = require('../models/Appointment');
 const Hospital = require('../models/Hospital');
 const Clinic = require('../models/Clinic');
 const User = require('../models/user');
+const DoctorAttendanceLog = require('../models/DoctorAttendanceLog');
 
 // Controller to get the number of doctors in the admin's hospital
 exports.getDoctorsCount = async (req, res) => {
@@ -347,6 +348,192 @@ exports.getHospitalInfo = async (req, res) => {
 
     } catch (error) {
         console.error('Error getting hospital info:', error);
+        return res.status(500).json({ 
+            status: 'error', 
+            message: 'Internal server error',
+            error: error.message 
+        });
+    }
+};
+
+// Controller to get all doctors for an admin's hospital/clinic with search and filter
+exports.getDoctorsList = async (req, res) => {
+    try {
+        const { admin_id, search, filterBy, filterValue } = req.query;
+
+        if (!admin_id) {
+            return res.status(400).json({ 
+                status: 'fail', 
+                message: 'admin_id is required' 
+            });
+        }
+
+        // Find which hospital/clinic this admin manages
+        const adminRecord = await HospitalAdmin.findOne({ admin_id: parseInt(admin_id) });
+
+        if (!adminRecord) {
+            return res.status(404).json({ 
+                status: 'fail', 
+                message: 'Admin not found or not assigned to any facility' 
+            });
+        }
+
+        const facilityId = adminRecord.hospital_id || adminRecord.clinic_id;
+        const facilityType = adminRecord.admin_type;
+
+        if (!facilityId) {
+            return res.status(404).json({ 
+                status: 'fail', 
+                message: 'Admin not assigned to any facility' 
+            });
+        }
+
+        // Build query based on facility type
+        let query = {};
+        if (facilityType === 'hospital') {
+            query.hospital_id = { $in: [facilityId] };
+        } else {
+            query.clinic_id = { $in: [facilityId] };
+        }
+
+        // Add search filter if provided
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            query.$or = [
+                { first_name: searchRegex },
+                { last_name: searchRegex },
+                { name: searchRegex },
+                { department: searchRegex },
+                { mrn: searchRegex }
+            ];
+        }
+
+        // Add specific filter if provided
+        if (filterBy && filterValue) {
+            if (filterBy === 'department') {
+                query.department = new RegExp(filterValue, 'i');
+            } else if (filterBy === 'status') {
+                query.is_available = filterValue.toLowerCase() === 'on-duty';
+            }
+        }
+
+        // Fetch doctors
+        const doctors = await Doctor.find(query).lean();
+
+        // Format the response with last attendance info
+        const formattedDoctors = doctors.map(doctor => {
+            // Format last check-in time
+            let lastCheckIn = 'Never';
+            if (doctor.last_attendance_time) {
+                const attendanceDate = new Date(doctor.last_attendance_time);
+                const now = new Date();
+                const diffMs = now - attendanceDate;
+                const diffHours = diffMs / (1000 * 60 * 60);
+                const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+                if (diffHours < 24) {
+                    // Today - show time
+                    lastCheckIn = attendanceDate.toLocaleTimeString('en-IN', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                        timeZone: 'Asia/Kolkata'
+                    }) + ' IST';
+                } else if (diffDays < 2) {
+                    // Yesterday
+                    lastCheckIn = 'Yesterday, ' + attendanceDate.toLocaleTimeString('en-IN', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                        timeZone: 'Asia/Kolkata'
+                    }) + ' IST';
+                } else {
+                    // Older - show date
+                    lastCheckIn = attendanceDate.toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
+                }
+            }
+
+            return {
+                id: doctor.doctor_id,
+                name: doctor.name || `Dr. ${doctor.first_name}${doctor.last_name ? ' ' + doctor.last_name : ''}`,
+                firstName: doctor.first_name,
+                lastName: doctor.last_name || '',
+                department: doctor.department,
+                status: doctor.is_available ? 'On-Duty' : 'Off-Duty',
+                isAvailable: doctor.is_available,
+                lastCheckIn: lastCheckIn,
+                mrn: doctor.mrn,
+                qualifications: doctor.qualifications || [],
+                hospitals: doctor.hospitals || [],
+                clinics: doctor.clinics || []
+            };
+        });
+
+        return res.json({
+            status: 'success',
+            data: formattedDoctors,
+            count: formattedDoctors.length,
+            facilityId: facilityId,
+            facilityType: facilityType
+        });
+
+    } catch (error) {
+        console.error('Error getting doctors list:', error);
+        return res.status(500).json({ 
+            status: 'error', 
+            message: 'Internal server error',
+            error: error.message 
+        });
+    }
+};
+
+// Controller to get unique departments for filtering
+exports.getDepartments = async (req, res) => {
+    try {
+        const { admin_id } = req.query;
+
+        if (!admin_id) {
+            return res.status(400).json({ 
+                status: 'fail', 
+                message: 'admin_id is required' 
+            });
+        }
+
+        // Find which hospital/clinic this admin manages
+        const adminRecord = await HospitalAdmin.findOne({ admin_id: parseInt(admin_id) });
+
+        if (!adminRecord) {
+            return res.status(404).json({ 
+                status: 'fail', 
+                message: 'Admin not found or not assigned to any facility' 
+            });
+        }
+
+        const facilityId = adminRecord.hospital_id || adminRecord.clinic_id;
+        const facilityType = adminRecord.admin_type;
+
+        // Build query based on facility type
+        let query = {};
+        if (facilityType === 'hospital') {
+            query.hospital_id = { $in: [facilityId] };
+        } else {
+            query.clinic_id = { $in: [facilityId] };
+        }
+
+        // Get unique departments
+        const departments = await Doctor.distinct('department', query);
+
+        return res.json({
+            status: 'success',
+            data: departments.filter(d => d) // Remove null/empty values
+        });
+
+    } catch (error) {
+        console.error('Error getting departments:', error);
         return res.status(500).json({ 
             status: 'error', 
             message: 'Internal server error',
