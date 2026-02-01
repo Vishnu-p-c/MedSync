@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import SideNav from "../components/SideNav";
+import TopNavbar from "../components/TopNavbar";
 import GlassSurface from "../components/GlassSurface/GlassSurface";
 import axiosInstance from "../utils/axiosInstance";
 import { getSosSummary, getSosTrend } from "../api/sosApi";
@@ -20,7 +21,6 @@ function AdminDashboard() {
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [patientInflowData, setPatientInflowData] = useState([]);
   const [patientInflowLoading, setPatientInflowLoading] = useState(true);
-  const userName = localStorage.getItem('userName') || 'Admin';
   const userId = localStorage.getItem('userId'); // This is the admin_id
 
   // Fetch active ambulance count
@@ -228,36 +228,27 @@ function AdminDashboard() {
 
       {/* Main Content */}
       <div className="min-h-screen w-full lg:pl-64">
-        {/* Mobile Header */}
-        <header className="lg:hidden bg-[#0a1628] text-white p-4 flex items-center justify-between sticky top-0 z-30 border-b border-white/10">
-          <button 
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <span className="text-lg font-bold">Dashboard</span>
-          <div className="w-10"></div>
-        </header>
+        {/* Mobile Header with hamburger menu */}
+        <div className="lg:hidden">
+          <header className="bg-[#0a1628] text-white p-4 flex items-center sticky top-0 z-30 border-b border-white/10">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors mr-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="flex-1">
+              <TopNavbar />
+            </div>
+          </header>
+        </div>
 
         {/* Desktop Header */}
-        <header className="hidden lg:flex items-center justify-between p-6 border-b border-white/10">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard </h1>
-            <p className="text-white/60 text-sm">Monitor and manage hospital equipment inventory</p>
-          </div>
-          <div className="flex items-center gap-3 bg-white/10 rounded-full px-4 py-2">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm">
-              {userName.charAt(0).toUpperCase()}
-            </div>
-            <span className="text-white">Admin {userName}</span>
-            <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </header>
+        <div className="hidden lg:block">
+          <TopNavbar />
+        </div>
 
         {/* Dashboard Content */}
         <main className="p-4 sm:p-6">
@@ -337,16 +328,43 @@ function AdminDashboard() {
               borderRadius={16}
               className="p-4"
             >
-              <div className="mb-4 flex flex-col  justify-center h-full ">
-                <p className="text-white/60 text-sm mb-2">Doctors on Duty</p>
-                <div className="flex  gap-2 pt-6 ">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="text-white font-semibold">Doctors on Duty</p>
+              </div>
+              <div className="flex items-end justify-between">
+                <div>
                   {doctorsLoading ? (
                     <span className="text-4xl font-bold text-white">...</span>
                   ) : (
-                    <span className="text-4xl font-bold text-white ">
-                      {doctorsData.doctorsOnDuty}/{doctorsData.totalDoctors}
-                    </span>
+                    <>
+                      <span className="text-4xl font-bold text-emerald-400">{doctorsData.doctorsOnDuty}</span>
+                      <span className="text-2xl font-medium text-white/40">/{doctorsData.totalDoctors}</span>
+                    </>
                   )}
+                  <p className="text-white/40 text-xs mt-1">Available today</p>
+                </div>
+                <div className="w-16 h-16">
+                  <svg viewBox="0 0 36 36" className="w-full h-full">
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#1e3a5f"
+                      strokeWidth="3"
+                    />
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth="3"
+                      strokeDasharray={`${doctorsLoading ? 0 : (doctorsData.doctorsOnDuty / doctorsData.totalDoctors) * 100}, 100`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
                 </div>
               </div>
             </GlassSurface>
@@ -360,30 +378,28 @@ function AdminDashboard() {
               borderRadius={16}
               className="p-4"
             >
-              <p className="text-white/60 text-sm mb-2">Active Ambulances</p>
-              <div className="flex items-center gap-2 mb-3">
-                {ambulanceLoading ? (
-                  <span className="text-3xl font-bold text-yellow-400">...</span>
-                ) : (
-                  <span className="text-3xl font-bold text-yellow-400">{activeAmbulances}</span>
-                )}
-                <span className="text-white/60">On Duty</span>
-              </div>
-              {/* Mini Map Placeholder */}
-              <div className="bg-blue-900/30 rounded-lg h-20 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 opacity-50">
-                  <svg viewBox="0 0 100 60" className="w-full h-full">
-                    <path d="M10,30 Q30,10 50,30 T90,30" stroke="#3b82f6" fill="none" strokeWidth="1" />
-                    <path d="M20,40 Q40,20 60,40 T100,40" stroke="#3b82f6" fill="none" strokeWidth="1" />
-                    <circle cx="30" cy="25" r="3" fill="#22c55e" />
-                    <circle cx="60" cy="35" r="3" fill="#22c55e" />
-                    <circle cx="75" cy="20" r="3" fill="#22c55e" />
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <div className="bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-full z-10">
-                  {ambulanceLoading ? '...' : activeAmbulances}
-                </div>
+                <p className="text-white font-semibold">Active Ambulances</p>
               </div>
+              <div className="flex items-center gap-4 mb-3">
+                {ambulanceLoading ? (
+                  <span className="text-4xl font-bold text-amber-400">...</span>
+                ) : (
+                  <>
+                    <span className="text-4xl font-bold text-amber-400">{activeAmbulances}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      <span className="text-white/60 text-sm">On Duty</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              <p className="text-white/40 text-xs">Active today</p>
             </GlassSurface>
 
             {/* SOS Requests Summary */}
@@ -604,145 +620,6 @@ function AdminDashboard() {
                   </div>
                 </>
               )}
-            </GlassSurface>
-          </div>
-
-          {/* Third Row - More Info */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Recent Activity */}
-            <GlassSurface
-              opacity={0.9}
-              backgroundOpacity={0.1}
-              brightness={50}
-              blur={10}
-              borderRadius={16}
-              className="p-4"
-            >
-              <h3 className="text-white font-semibold mb-4">Recent Activity</h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                  <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-medium text-sm">Patient discharged</p>
-                    <p className="text-white/40 text-xs">Room 204 - Ward B</p>
-                  </div>
-                  <span className="text-white/40 text-xs">5m ago</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-medium text-sm">New patient admitted</p>
-                    <p className="text-white/40 text-xs">Emergency - ICU</p>
-                  </div>
-                  <span className="text-white/40 text-xs">12m ago</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                  <div className="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-medium text-sm">Shift change completed</p>
-                    <p className="text-white/40 text-xs">Night shift started</p>
-                  </div>
-                  <span className="text-white/40 text-xs">30m ago</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                  <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-medium text-sm">Lab results ready</p>
-                    <p className="text-white/40 text-xs">Patient #1847 - Blood work</p>
-                  </div>
-                  <span className="text-white/40 text-xs">45m ago</span>
-                </div>
-              </div>
-            </GlassSurface>
-
-            {/* Hospital Quick Stats */}
-            <GlassSurface
-              opacity={0.9}
-              backgroundOpacity={0.1}
-              brightness={50}
-              blur={10}
-              borderRadius={16}
-              className="p-4"
-            >
-              <h3 className="text-white font-semibold mb-4">Hospital Quick Stats</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/5 rounded-lg p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-white">42</p>
-                      <p className="text-white/40 text-xs">Available Beds</p>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white/10 rounded-full h-2">
-                    <div className="bg-cyan-500 h-2 rounded-full" style={{ width: '70%' }}></div>
-                  </div>
-                  <p className="text-white/40 text-xs mt-1">70% Occupancy</p>
-                </div>
-                <div className="bg-white/5 rounded-lg p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-white">8</p>
-                      <p className="text-white/40 text-xs">ICU Beds Free</p>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white/10 rounded-full h-2">
-                    <div className="bg-pink-500 h-2 rounded-full" style={{ width: '40%' }}></div>
-                  </div>
-                  <p className="text-white/40 text-xs mt-1">60% Occupancy</p>
-                </div>
-                <div className="bg-white/5 rounded-lg p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-white">156</p>
-                      <p className="text-white/40 text-xs">Total Patients</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white/5 rounded-lg p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-white">23</p>
-                      <p className="text-white/40 text-xs">Avg Wait Time (min)</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </GlassSurface>
           </div>
         </main>

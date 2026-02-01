@@ -1,6 +1,9 @@
 const router = require('express').Router();
 const adminDashboardController = require('../controllers/adminDashboardController');
 
+// Route to get hospital/clinic info for the admin
+router.get('/hospital-info', adminDashboardController.getHospitalInfo);
+
 // Route to get doctors count for the logged-in admin's hospital
 router.get('/doctors-count', adminDashboardController.getDoctorsCount);
 
