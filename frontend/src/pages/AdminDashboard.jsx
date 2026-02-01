@@ -18,6 +18,8 @@ function AdminDashboard() {
   const [sosTrendLoading, setSosTrendLoading] = useState(true);
   const [criticalAlerts, setCriticalAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
+  const [patientInflowData, setPatientInflowData] = useState([]);
+  const [patientInflowLoading, setPatientInflowLoading] = useState(true);
   const userName = localStorage.getItem('userName') || 'Admin';
   const userId = localStorage.getItem('userId'); // This is the admin_id
 
@@ -135,12 +137,29 @@ function AdminDashboard() {
     }
   }, [userId]);
 
+  // Fetch patient inflow data for chart
+  const fetchPatientInflow = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const response = await axiosInstance.get(`/admin/dashboard/patient-inflow?admin_id=${userId}`);
+      if (response.data.status === 'success') {
+        setPatientInflowData(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching patient inflow:', error);
+    } finally {
+      setPatientInflowLoading(false);
+    }
+  }, [userId]);
+
   // Initial fetch and polling for real-time updates (every 30 seconds)
   useEffect(() => {
     fetchRushLevel();
     fetchSosSummary();
     fetchSosTrend();
     fetchCriticalAlerts();
+    fetchPatientInflow();
 
     // Set up polling interval for real-time updates
     const pollInterval = setInterval(() => {
@@ -148,19 +167,19 @@ function AdminDashboard() {
       fetchSosSummary();
       fetchSosTrend();
       fetchCriticalAlerts();
+      fetchPatientInflow();
     }, 30000); // Poll every 30 seconds
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval);
-  }, [fetchRushLevel, fetchSosSummary, fetchSosTrend, fetchCriticalAlerts]);
+  }, [fetchRushLevel, fetchSosSummary, fetchSosTrend, fetchCriticalAlerts, fetchPatientInflow]);
 
   // Sample data - replace with API calls
   const dashboardData = {
     rushLevel: rushLevel,
     doctorsOnDuty: { current: 120, total: 150 },
     sosRequests: sosData,
-    activeAmbulances: 8,
-    patientInflow: [25, 30, 45, 55, 40, 50, 60, 55, 65, 70, 75, 80, 85]
+    activeAmbulances: 8
   };
 
   // Rush level color
@@ -466,34 +485,67 @@ function AdminDashboard() {
               className="p-4"
             >
               <h3 className="text-white font-semibold mb-4">Patient Inflow (Last 24h)</h3>
-              <div className="h-40 flex items-end justify-between gap-1">
-                {/* Simple line chart representation */}
-                <svg viewBox="0 0 200 100" className="w-full h-full">
-                  <defs>
-                    <linearGradient id="inflowGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  {/* Area fill */}
-                  <path
-                    d="M0,80 L15,75 L30,60 L45,50 L60,65 L75,55 L90,45 L105,50 L120,40 L135,35 L150,30 L165,25 L180,20 L200,15 L200,100 L0,100 Z"
-                    fill="url(#inflowGradient)"
-                  />
-                  {/* Line */}
-                  <path
-                    d="M0,80 L15,75 L30,60 L45,50 L60,65 L75,55 L90,45 L105,50 L120,40 L135,35 L150,30 L165,25 L180,20 L200,15"
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="2"
-                  />
-                  {/* X-axis labels */}
-                  <text x="15" y="98" fill="#ffffff60" fontSize="8">8</text>
-                  <text x="60" y="98" fill="#ffffff60" fontSize="8">12</text>
-                  <text x="105" y="98" fill="#ffffff60" fontSize="8">16</text>
-                  <text x="150" y="98" fill="#ffffff60" fontSize="8">20</text>
-                </svg>
-              </div>
+              {patientInflowLoading ? (
+                <div className="h-40 flex items-center justify-center">
+                  <span className="text-white/60">Loading...</span>
+                </div>
+              ) : (
+                <div className="h-40 flex items-end justify-between gap-1">
+                  <svg viewBox="0 0 200 100" className="w-full h-full">
+                    <defs>
+                      <linearGradient id="inflowGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    {patientInflowData.length > 0 ? (
+                      (() => {
+                        const maxCount = Math.max(...patientInflowData.map(d => d.count), 1);
+                        const points = patientInflowData.map((item, index) => {
+                          const x = (index / (patientInflowData.length - 1)) * 200;
+                          const y = 90 - (item.count / maxCount) * 80;
+                          return `${x},${y}`;
+                        });
+                        const linePath = `M${points.join(' L')}`;
+                        const areaPath = `M0,90 L${points.join(' L')} L200,90 Z`;
+                        
+                        return (
+                          <>
+                            {/* Area fill */}
+                            <path d={areaPath} fill="url(#inflowGradient)" />
+                            {/* Line */}
+                            <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="2" />
+                            {/* Data points */}
+                            {patientInflowData.map((item, index) => {
+                              const x = (index / (patientInflowData.length - 1)) * 200;
+                              const y = 90 - (item.count / maxCount) * 80;
+                              return (
+                                <circle
+                                  key={index}
+                                  cx={x}
+                                  cy={y}
+                                  r="2"
+                                  fill="#3b82f6"
+                                  className="hover:r-4 cursor-pointer"
+                                >
+                                  <title>{`${item.label}: ${item.count} patients`}</title>
+                                </circle>
+                              );
+                            })}
+                            {/* X-axis labels */}
+                            <text x="0" y="98" fill="#ffffff60" fontSize="7">{patientInflowData[0]?.hour}:00</text>
+                            <text x="65" y="98" fill="#ffffff60" fontSize="7">{patientInflowData[Math.floor(patientInflowData.length / 3)]?.hour}:00</text>
+                            <text x="130" y="98" fill="#ffffff60" fontSize="7">{patientInflowData[Math.floor(patientInflowData.length * 2 / 3)]?.hour}:00</text>
+                            <text x="180" y="98" fill="#ffffff60" fontSize="7">{patientInflowData[patientInflowData.length - 1]?.hour}:00</text>
+                          </>
+                        );
+                      })()
+                    ) : (
+                      <text x="100" y="50" fill="#ffffff60" fontSize="10" textAnchor="middle">No data available</text>
+                    )}
+                  </svg>
+                </div>
+              )}
             </GlassSurface>
 
             {/* SOS Trend Chart */}
