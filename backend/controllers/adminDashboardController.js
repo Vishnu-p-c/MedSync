@@ -3,6 +3,9 @@ const HospitalAdmin = require('../models/HospitalAdmin');
 const Equipment = require('../models/Equipment');
 const Stock = require('../models/Stock');
 const Appointment = require('../models/Appointment');
+const Hospital = require('../models/Hospital');
+const Clinic = require('../models/Clinic');
+const User = require('../models/user');
 
 // Controller to get the number of doctors in the admin's hospital
 exports.getDoctorsCount = async (req, res) => {
@@ -247,6 +250,103 @@ exports.getPatientInflow = async (req, res) => {
 
     } catch (error) {
         console.error('Error getting patient inflow:', error);
+        return res.status(500).json({ 
+            status: 'error', 
+            message: 'Internal server error',
+            error: error.message 
+        });
+    }
+};
+
+/**
+ * Get hospital/clinic info and admin details
+ * Returns name and basic details of the facility along with admin info
+ */
+exports.getHospitalInfo = async (req, res) => {
+    try {
+        const { admin_id } = req.query;
+
+        if (!admin_id) {
+            return res.status(400).json({ 
+                status: 'fail', 
+                message: 'admin_id is required' 
+            });
+        }
+
+        // Find which hospital/clinic this admin manages
+        const adminRecord = await HospitalAdmin.findOne({ admin_id: parseInt(admin_id) });
+
+        if (!adminRecord) {
+            return res.status(404).json({ 
+                status: 'fail', 
+                message: 'Admin not found or not assigned to any facility' 
+            });
+        }
+
+        // Get admin user details
+        const adminUser = await User.findOne({ user_id: parseInt(admin_id) });
+        
+        let adminInfo = {
+            firstName: 'Admin',
+            lastName: '',
+            fullName: 'Admin',
+            email: '',
+            role: 'admin'
+        };
+
+        if (adminUser) {
+            adminInfo = {
+                firstName: adminUser.first_name,
+                lastName: adminUser.last_name || '',
+                fullName: `${adminUser.first_name}${adminUser.last_name ? ' ' + adminUser.last_name : ''}`,
+                email: adminUser.email,
+                role: adminUser.role
+            };
+        }
+
+        let facilityInfo = null;
+
+        if (adminRecord.admin_type === 'hospital' && adminRecord.hospital_id) {
+            const hospital = await Hospital.findOne({ hospital_id: adminRecord.hospital_id });
+            if (hospital) {
+                facilityInfo = {
+                    id: hospital.hospital_id,
+                    name: hospital.name,
+                    type: 'hospital',
+                    address: hospital.address,
+                    rushLevel: hospital.rush_level
+                };
+            }
+        } else if (adminRecord.admin_type === 'clinic' && adminRecord.clinic_id) {
+            const clinic = await Clinic.findOne({ clinic_id: adminRecord.clinic_id });
+            if (clinic) {
+                facilityInfo = {
+                    id: clinic.clinic_id,
+                    name: clinic.name,
+                    type: 'clinic',
+                    address: clinic.address
+                };
+            }
+        }
+
+        if (!facilityInfo) {
+            return res.status(404).json({ 
+                status: 'fail', 
+                message: 'Facility not found' 
+            });
+        }
+
+        return res.json({
+            status: 'success',
+            data: {
+                ...facilityInfo,
+                admin: adminInfo
+            },
+            timestamp: new Date()
+        });
+
+    } catch (error) {
+        console.error('Error getting hospital info:', error);
         return res.status(500).json({ 
             status: 'error', 
             message: 'Internal server error',
