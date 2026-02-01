@@ -23,6 +23,9 @@ router.get('/recent', sosController.getRecentSosRequests);
 // GET /sos/severity - Get SOS breakdown by severity
 router.get('/severity', sosController.getSosBySeverity);
 
+// GET /sos/trend - Get hourly SOS trend for last 24 hours
+router.get('/trend', sosController.getSosTrend);
+
 // ============================================
 // Existing Routes
 // ============================================

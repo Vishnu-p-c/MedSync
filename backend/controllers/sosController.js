@@ -122,6 +122,77 @@ exports.getRecentSosRequests = async (req, res) => {
 };
 
 /**
+ * Get SOS trend data (hourly counts for last 24 hours)
+ * Returns array of { hour, count } for charting
+ */
+exports.getSosTrend = async (req, res) => {
+    try {
+        const { admin_id } = req.query;
+
+        if (!admin_id) {
+            return res.status(400).json({
+                status: 'fail',
+                message: 'admin_id is required'
+            });
+        }
+
+        // Find admin's hospital
+        const adminRecord = await HospitalAdmin.findOne({ admin_id: parseInt(admin_id) });
+
+        let matchStage = {};
+        if (adminRecord && adminRecord.hospital_id) {
+            matchStage.assigned_hospital_id = adminRecord.hospital_id;
+        }
+
+        // Get SOS requests from the last 24 hours
+        const twentyFourHoursAgo = new Date();
+        twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+        matchStage.created_at = { $gte: twentyFourHoursAgo };
+
+        // Aggregate by hour
+        const hourlyData = await SosRequest.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: { $hour: '$created_at' },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Create a full 24-hour array with zeros for missing hours
+        const currentHour = new Date().getHours();
+        const trendData = [];
+        
+        // Build array from 24 hours ago to current hour
+        for (let i = 0; i < 24; i++) {
+            const hour = (currentHour - 23 + i + 24) % 24;
+            const found = hourlyData.find(item => item._id === hour);
+            trendData.push({
+                hour: hour,
+                label: `${hour}:00`,
+                count: found ? found.count : 0
+            });
+        }
+
+        return res.json({
+            status: 'success',
+            data: trendData,
+            timestamp: new Date()
+        });
+
+    } catch (error) {
+        console.error('Error getting SOS trend:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+
+/**
  * Get SOS requests by severity breakdown
  */
 exports.getSosBySeverity = async (req, res) => {
