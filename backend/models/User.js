@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   user_id: {type: Number, required: true, unique: true},
   first_name: {type: String, required: true, trim: true, maxLength: 50},
-  last_name: {type: String, trim: true, maxLength: 50},
+  last_name: {type: String, trim: true, maxLength: 50, default: ''},
   username:
       {type: String, required: true, unique: true, trim: true, maxLength: 50},
   password_hash: {type: String, required: true, maxLength: 255},
@@ -16,18 +16,15 @@ const userSchema = new mongoose.Schema({
       {type: String, required: true, unique: true, trim: true, maxLength: 100},
   phone: {type: String, required: true, maxLength: 20},
   date_of_birth: {type: Date, required: true},
-  gender: {type: String, enum: ['male', 'female', 'other']},
+  gender: {type: String, enum: ['male', 'female', 'other'], required: true},
   address: {
     type: String,
     maxLength: 500,
-    required: function() {
-      // address is required for patient/admin, optional for driver/doctor
-      return this.role === 'patient' || this.role === 'admin';
-    }
+    default: null
   },
   latitude: {type: Number},
   longitude: {type: Number},
-  created_at: {type: Date, default: Date.now}
+  created_at: {type: Date, default: Date.now},
+  last_login: {type: Date, default: null}
 });
-
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.models.User || mongoose.model('User', userSchema);
