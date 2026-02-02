@@ -15,6 +15,7 @@ const adminDashboardRoutes = require('./routes/adminDashboard');
 const rushRoutes = require('./routes/rushRoutes');
 const ambulanceRoutes = require('./routes/ambulanceRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const alertsRoutes = require('./routes/alertsRoutes');
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use('/admin/dashboard', adminDashboardRoutes);
 app.use('/admin/rush', rushRoutes);
 app.use('/admin/ambulance', ambulanceRoutes);
 app.use('/settings', settingsRoutes);
+app.use('/alerts', alertsRoutes);
 // app.use("/api/doctors", require("./routes/doctorRoutes"));
 
 app.listen(5000, () => console.log('Server running on port 5000'));

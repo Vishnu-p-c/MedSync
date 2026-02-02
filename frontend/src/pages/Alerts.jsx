@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import SideNav from '../components/SideNav';
 import TopNavbar from '../components/TopNavbar';
 import GlassSurface from '../components/GlassSurface/GlassSurface';
-import axiosInstance from '../utils/axiosInstance';
+import { getAllAlerts } from '../api/alertsApi';
 
 const Alerts = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -10,6 +10,7 @@ const Alerts = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // 'all', 'critical', 'warning', 'info'
   const [filteredAlerts, setFilteredAlerts] = useState([]);
+  const [summary, setSummary] = useState({ total: 0, critical: 0, warning: 0, info: 0 });
 
   const userId = localStorage.getItem('userId');
 
@@ -20,23 +21,12 @@ const Alerts = () => {
       return;
     }
 
+    setLoading(true);
     try {
-      const response = await axiosInstance.get(`/admin/dashboard/critical-alerts?admin_id=${userId}`);
-      if (response.data.status === 'success') {
-        // Transform the data into alerts format
-        const alertsData = response.data.data || [];
-        const formattedAlerts = alertsData.map((item, index) => ({
-          id: index + 1,
-          type: item.type === 'equipment' ? 'warning' : 'critical',
-          category: item.type === 'equipment' ? 'Equipment' : 'Stock',
-          title: item.name,
-          message: item.type === 'equipment' 
-            ? `Equipment ${item.status}: ${item.name}` 
-            : `Low stock alert: ${item.name} (${item.current_quantity}/${item.minimum_threshold})`,
-          timestamp: new Date().toISOString(),
-          isRead: false
-        }));
-        setAlerts(formattedAlerts);
+      const response = await getAllAlerts(userId);
+      if (response.status === 'success') {
+        setAlerts(response.data || []);
+        setSummary(response.summary || { total: 0, critical: 0, warning: 0, info: 0 });
       }
     } catch (error) {
       console.error('Error fetching alerts:', error);
@@ -131,12 +121,12 @@ const Alerts = () => {
     return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
   };
 
-  // Count alerts by type
+  // Count alerts by type - use summary from API
   const alertCounts = {
-    all: alerts.length,
-    critical: alerts.filter(a => a.type === 'critical').length,
-    warning: alerts.filter(a => a.type === 'warning').length,
-    info: alerts.filter(a => a.type === 'info').length
+    all: summary.total,
+    critical: summary.critical,
+    warning: summary.warning,
+    info: summary.info
   };
 
   return (
