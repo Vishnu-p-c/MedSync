@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
   },
   latitude: {type: Number},
   longitude: {type: Number},
-  created_at: {type: Date, default: Date.now}
+  created_at: {type: Date, default: Date.now},
+  last_login: {type: Date, default: null}
 });
 module.exports = mongoose.models.User || mongoose.model('User', userSchema);

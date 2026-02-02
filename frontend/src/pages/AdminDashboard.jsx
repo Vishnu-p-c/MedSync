@@ -348,24 +348,6 @@ function AdminDashboard() {
                   )}
                   <p className="text-white/40 text-xs mt-1">Available today</p>
                 </div>
-                <div className="w-16 h-16">
-                  <svg viewBox="0 0 36 36" className="w-full h-full">
-                    <path
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
-                      stroke="#1e3a5f"
-                      strokeWidth="3"
-                    />
-                    <path
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
-                      stroke="#10b981"
-                      strokeWidth="3"
-                      strokeDasharray={`${doctorsLoading ? 0 : (doctorsData.doctorsOnDuty / doctorsData.totalDoctors) * 100}, 100`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
               </div>
             </GlassSurface>
 
