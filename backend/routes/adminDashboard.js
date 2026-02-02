@@ -19,4 +19,7 @@ router.get('/critical-alerts', adminDashboardController.getCriticalAlerts);
 // Route to get patient inflow data (hourly for last 24 hours)
 router.get('/patient-inflow', adminDashboardController.getPatientInflow);
 
+// Route to add a new doctor to the admin's hospital/clinic
+router.post('/doctors/add', adminDashboardController.addDoctor);
+
 module.exports = router;
