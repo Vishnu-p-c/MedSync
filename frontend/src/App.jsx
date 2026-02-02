@@ -5,6 +5,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AmbulanceDashboard from "./pages/AmbulanceDashboard";
 import Doctors from "./pages/Doctors";
 import Equipment from "./pages/Equipment";
+import Alerts from "./pages/Alerts";
+import Settings from "./pages/Settings";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -53,6 +55,22 @@ function App() {
           element={
             <ProtectedRoute>
               <Equipment />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/alerts" 
+          element={
+            <ProtectedRoute>
+              <Alerts />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           } 
         />
