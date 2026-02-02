@@ -6,6 +6,7 @@ const AmbulanceDriver = require('../models/AmbulanceDriver');
 const AmbulanceLiveLocation = require('../models/AmbulanceLiveLocation');
 const AmbulanceAssignment = require('../models/AmbulanceAssignment');
 const sosController = require('../controllers/sosController');
+const firebaseAdmin = require('../config/firebase');
 // const Hospital = require('../models/Hospital'); // optional for future use
 const https = require('https');
 const {URL} = require('url');
@@ -38,6 +39,119 @@ const ALLOWED_SEVERITIES =
 // Offer window for driver to accept/reject (milliseconds)
 const OFFER_TIMEOUT_MS = 20000;  // 20 seconds
 const _offerTimeouts = new Map();
+
+// ============================================
+// FCM Push Notification Helper
+// ============================================
+
+/**
+ * Send FCM push notification to a candidate driver for an SOS request.
+ * Only sends to one driver at a time (the current candidate).
+ * @param {Number} driverId - The driver's ID
+ * @param {Object} sosData - SOS request data (sos_id, patient_id, latitude,
+ *     longitude)
+ * @returns {Promise<boolean>} - true if sent successfully, false otherwise
+ */
+async function sendSosNotificationToDriver(driverId, sosData) {
+  try {
+    // Check if Firebase is initialized
+    if (!firebaseAdmin || !firebaseAdmin.apps ||
+        firebaseAdmin.apps.length === 0) {
+      console.warn(
+          'FCM: Firebase Admin not initialized, skipping notification');
+      return false;
+    }
+
+    // Get driver's FCM token
+    const driver =
+        await AmbulanceDriver.findOne({driver_id: Number(driverId)}).lean();
+    if (!driver) {
+      console.error(`FCM: Driver ${driverId} not found`);
+      return false;
+    }
+
+    if (!driver.fcm_token) {
+      console.warn(
+          `FCM: Driver ${driverId} has no FCM token, skipping notification`);
+      return false;
+    }
+
+    // Calculate distance from driver's current location to patient
+    let distanceKm = null;
+    try {
+      const driverLocation =
+          await AmbulanceLiveLocation.findOne({driver_id: Number(driverId)})
+              .lean();
+      if (driverLocation && driverLocation.latitude &&
+          driverLocation.longitude) {
+        distanceKm = haversineDistanceKm(
+            driverLocation.latitude, driverLocation.longitude, sosData.latitude,
+            sosData.longitude);
+        distanceKm =
+            Math.round(distanceKm * 100) / 100;  // Round to 2 decimal places
+      }
+    } catch (locErr) {
+      console.error(
+          `FCM: Error getting driver location for distance calc:`, locErr);
+    }
+
+    // Build FCM message
+    const message = {
+      token: driver.fcm_token,
+      notification: {
+        title: 'Emergency SOS Request',
+        body: 'New emergency nearby. Tap to accept or reject.'
+      },
+      data: {
+        type: 'SOS_REQUEST',
+        sos_id: String(sosData.sos_id),
+        patient_id: String(sosData.patient_id),
+        patient_latitude: String(sosData.latitude),
+        patient_longitude: String(sosData.longitude),
+        distance_km: distanceKm !== null ? String(distanceKm) : 'unknown'
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'sos_alerts',
+          priority: 'max',
+          defaultSound: true,
+          defaultVibrateTimings: true
+        }
+      }
+    };
+
+    // Send FCM notification
+    const response = await firebaseAdmin.messaging().send(message);
+    console.log(`FCM: Successfully sent SOS notification to driver ${
+        driverId}, messageId: ${response}`);
+    return true;
+
+  } catch (error) {
+    // Handle specific FCM errors
+    if (error.code === 'messaging/registration-token-not-registered' ||
+        error.code === 'messaging/invalid-registration-token') {
+      console.warn(
+          `FCM: Driver ${driverId} has invalid/expired token, clearing it`);
+      // Clear the invalid token
+      try {
+        await AmbulanceDriver.updateOne(
+            {driver_id: Number(driverId)},
+            {$set: {fcm_token: null, token_last_update: null}});
+      } catch (updateErr) {
+        console.error('FCM: Error clearing invalid token:', updateErr);
+      }
+    } else {
+      console.error(
+          `FCM: Error sending notification to driver ${driverId}:`,
+          error.message || error);
+    }
+    return false;
+  }
+}
+
+// Forward declaration for haversineDistanceKm (defined later in file)
+// This allows the FCM helper to use it
 
 // POST /sos/create
 router.post('/create', async (req, res) => {
@@ -126,6 +240,14 @@ router.post('/create', async (req, res) => {
                               .lean();
 
           if (updated) {
+            // Send FCM push notification to the first candidate driver
+            await sendSosNotificationToDriver(first, {
+              sos_id: updated.sos_id,
+              patient_id: updated.patient_id,
+              latitude: updated.latitude,
+              longitude: updated.longitude
+            });
+
             // schedule timeout for the offered driver
             clearOfferTimeoutForSos(updated.sos_id);
             const to = setTimeout(() => {
@@ -465,6 +587,14 @@ async function offerSosToDriverAtomic(sos, driverId) {
                         .lean();
 
     if (updated) {
+      // Send FCM push notification to the new candidate driver
+      await sendSosNotificationToDriver(driverId, {
+        sos_id: updated.sos_id,
+        patient_id: updated.patient_id,
+        latitude: updated.latitude,
+        longitude: updated.longitude
+      });
+
       // schedule auto-reject if driver doesn't respond
       clearOfferTimeoutForSos(sos.sos_id);
       const to = setTimeout(() => {
