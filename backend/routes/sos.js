@@ -37,7 +37,7 @@ const ALLOWED_SEVERITIES =
 
 // In-memory state for offer timeouts: sos_id -> timeout handle
 // Offer window for driver to accept/reject (milliseconds)
-const OFFER_TIMEOUT_MS = 20000;  // 20 seconds
+const OFFER_TIMEOUT_MS = 40000;  // 30 seconds
 const _offerTimeouts = new Map();
 
 // ============================================
