@@ -299,6 +299,58 @@ Failure Responses:
 
 --------------------------------------------------------------------------------
 
+POST /driver/update-fcm-token
+--------------------------------------------------------------------------------
+Description: Update driver's FCM (Firebase Cloud Messaging) token for push notifications.
+
+Request Body:
+{
+  "driver_id": number (required),
+  "fcm_token": "string (required)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "fcm_token_updated",
+  "driver_id": 11,
+  "token_last_update": "2026-02-03T12:30:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["driver_id", "fcm_token"] }
+{ "status": "fail", "message": "driver_id_must_be_number" }
+{ "status": "fail", "message": "driver_not_found" }
+{ "status": "error", "message": "server_error" }
+
+--------------------------------------------------------------------------------
+
+POST /driver/status
+--------------------------------------------------------------------------------
+Description: Get driver's active status by username.
+
+Request Body:
+{
+  "username": "string (required)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "driver_id": 11,
+  "username": "driver_john",
+  "is_active": true
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_field: username" }
+{ "status": "fail", "message": "user_not_found" }
+{ "status": "fail", "message": "user_is_not_a_driver" }
+{ "status": "fail", "message": "driver_record_not_found" }
+{ "status": "error", "message": "server_error" }
+
+--------------------------------------------------------------------------------
+
 POST /driver/sos/reject
 --------------------------------------------------------------------------------
 Description: Reject an SOS request.
