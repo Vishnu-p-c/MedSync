@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getAlertsSummary } from "../api/alertsApi";
+import logo from "../assets/logo.png";
 
 function SideNav({ isOpen, onClose }) {
   const location = useLocation();
@@ -73,11 +74,7 @@ function SideNav({ isOpen, onClose }) {
         </button>
 
         <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 3.5a1.5 1.5 0 013 0V4a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-.5a1.5 1.5 0 000 3h.5a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-.5a1.5 1.5 0 00-3 0v.5a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 00-1-1h-.5a1.5 1.5 0 010-3H4a1 1 0 001-1V6a1 1 0 011-1h3a1 1 0 001-1v-.5z"/>
-            </svg>
-          </div>
+          <img src={logo} alt="MedSync Logo" className="w-10 h-10 object-contain" />
           <span className="text-xl font-bold">MedSync</span>
         </div>
 
