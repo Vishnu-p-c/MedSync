@@ -5,19 +5,19 @@ const Stock = require('../models/Stock');
 const Appointment = require('../models/Appointment');
 const Hospital = require('../models/Hospital');
 const Clinic = require('../models/Clinic');
-const User = require('../models/User');
+const User = require('../models/user');
 const DoctorAttendanceLog = require('../models/DoctorAttendanceLog');
 
 // Controller to get the number of doctors in the admin's hospital
 exports.getDoctorsCount = async (req, res) => {
     try {
         // Get admin_id from request (sent from frontend)
-        const { admin_id } = req.query; // or req.body or req.params depending on your route
+        const admin_id = req.query.admin_id || req.body.admin_id || req.params.admin_id;
 
-        if (!admin_id) {
+        if (!admin_id || isNaN(parseInt(admin_id))) {
             return res.status(400).json({ 
                 status: 'fail', 
-                message: 'admin_id is required' 
+                message: 'admin_id is required and must be a number' 
             });
         }
 
@@ -629,6 +629,15 @@ exports.addDoctor = async (req, res) => {
         // Hash the password
         const password_hash = await bcrypt.hash(password, 10);
 
+        // Parse date of birth
+        const parsedDob = new Date(date_of_birth);
+        if (isNaN(parsedDob.getTime())) {
+            return res.status(400).json({
+                status: 'fail',
+                message: 'invalid_date_of_birth'
+            });
+        }
+
         // Create the User record
         const newUser = new User({
             user_id: newUserId,
@@ -639,11 +648,24 @@ exports.addDoctor = async (req, res) => {
             role: 'doctor',
             email,
             phone,
-            date_of_birth: new Date(date_of_birth),
+            date_of_birth: parsedDob,
             gender
         });
 
-        await newUser.save();
+        try {
+            await newUser.save();
+        } catch (userSaveError) {
+            console.error('Error saving user:', userSaveError);
+            if (userSaveError.code === 11000) {
+                // Duplicate key error
+                const field = Object.keys(userSaveError.keyPattern)[0];
+                return res.status(409).json({
+                    status: 'fail',
+                    message: `${field}_already_exists`
+                });
+            }
+            throw userSaveError;
+        }
 
         // Create the Doctor record
         const qualificationsArray = Array.isArray(qualifications) 
@@ -670,7 +692,23 @@ exports.addDoctor = async (req, res) => {
         }
 
         const newDoctor = new Doctor(doctorData);
-        await newDoctor.save();
+        
+        try {
+            await newDoctor.save();
+        } catch (doctorSaveError) {
+            console.error('Error saving doctor:', doctorSaveError);
+            // Rollback: delete the user we just created
+            await User.deleteOne({ user_id: newUserId });
+            
+            if (doctorSaveError.code === 11000) {
+                const field = Object.keys(doctorSaveError.keyPattern)[0];
+                return res.status(409).json({
+                    status: 'fail',
+                    message: `${field}_already_exists`
+                });
+            }
+            throw doctorSaveError;
+        }
 
         return res.status(201).json({
             status: 'success',
@@ -688,10 +726,12 @@ exports.addDoctor = async (req, res) => {
 
     } catch (error) {
         console.error('Error adding doctor:', error);
+        console.error('Error stack:', error.stack);
         return res.status(500).json({
             status: 'error',
             message: 'Internal server error',
-            error: error.message
+            error: error.message,
+            stack: error.stack
         });
     }
 };
