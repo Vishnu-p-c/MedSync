@@ -6,7 +6,9 @@ const ambulanceDriverSchema = new mongoose.Schema({
   last_name: {type: String, maxLength: 100, default: ''},
   license_number: {type: String, maxLength: 100},
   vehicle_number: {type: String, maxLength: 50},
-  is_active: {type: Boolean, default: false}
+  is_active: {type: Boolean, default: false},
+  fcm_token: {type: String, default: null},
+  token_last_update: {type: Date, default: null}
 });
 
 module.exports = mongoose.model('AmbulanceDriver', ambulanceDriverSchema);
