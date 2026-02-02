@@ -9,6 +9,99 @@ const sosRoutes = require('./sos');
 const https = require('https');
 const {URL} = require('url');
 
+// POST /driver/update-fcm-token
+// Body: { driver_id: Number, fcm_token: String }
+// Updates the driver's FCM token for push notifications
+router.post('/update-fcm-token', async (req, res) => {
+  try {
+    const {driver_id, fcm_token} = req.body;
+
+    // Validate required fields
+    const missing = [];
+    if (driver_id === undefined || driver_id === null)
+      missing.push('driver_id');
+    if (!fcm_token) missing.push('fcm_token');
+    if (missing.length) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_fields', missing});
+    }
+
+    const driverIdNum = Number(driver_id);
+    if (isNaN(driverIdNum)) {
+      return res.status(400).json(
+          {status: 'fail', message: 'driver_id_must_be_number'});
+    }
+
+    // Find and update the driver's FCM token
+    const driver = await AmbulanceDriver.findOneAndUpdate(
+        {driver_id: driverIdNum},
+        {$set: {fcm_token: fcm_token, token_last_update: new Date()}},
+        {new: true});
+
+    if (!driver) {
+      console.error('FCM token update failed: driver not found', driverIdNum);
+      return res.status(404).json(
+          {status: 'fail', message: 'driver_not_found'});
+    }
+
+    console.log('FCM token updated for driver:', driverIdNum);
+    return res.json({
+      status: 'success',
+      message: 'fcm_token_updated',
+      driver_id: driver.driver_id,
+      token_last_update: driver.token_last_update
+    });
+
+  } catch (err) {
+    console.error('Error in /driver/update-fcm-token:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
+// POST /driver/status
+// Body: { username: String }
+// Returns the is_active status for an ambulance driver
+router.post('/status', async (req, res) => {
+  try {
+    const {username} = req.body;
+
+    if (!username) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_field: username'});
+    }
+
+    // Find user by username and verify they are a driver
+    const user = await User.findOne({username: username.trim()}).lean();
+    if (!user) {
+      return res.status(404).json({status: 'fail', message: 'user_not_found'});
+    }
+
+    if (user.role !== 'driver') {
+      return res.status(400).json(
+          {status: 'fail', message: 'user_is_not_a_driver'});
+    }
+
+    // Get driver's active status
+    const driver =
+        await AmbulanceDriver.findOne({driver_id: user.user_id}).lean();
+    if (!driver) {
+      return res.status(404).json(
+          {status: 'fail', message: 'driver_record_not_found'});
+    }
+
+    return res.json({
+      status: 'success',
+      driver_id: driver.driver_id,
+      username: user.username,
+      is_active: driver.is_active
+    });
+
+  } catch (err) {
+    console.error('Error in /driver/status:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
 // POST /driver/duty
 // Body: { driver_id: Number, on_duty: Boolean }
 router.post('/duty', async (req, res) => {
@@ -577,10 +670,7 @@ async function getDistanceFromGoogle(originLat, originLon, destLat, destLon) {
 router.get('/active-count', async (req, res) => {
   try {
     const activeCount = await AmbulanceDriver.countDocuments({is_active: true});
-    return res.json({
-      status: 'success',
-      activeDrivers: activeCount
-    });
+    return res.json({status: 'success', activeDrivers: activeCount});
   } catch (err) {
     console.error('Error in /driver/active-count:', err);
     return res.status(500).json({status: 'error', message: 'server_error'});
