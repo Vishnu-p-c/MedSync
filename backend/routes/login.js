@@ -18,6 +18,10 @@ router.post('/', async (req, res) => {
     return res.json({status: 'fail', message: 'incorrect_password'});
   }
 
+  // Update last login timestamp
+  user.last_login = new Date();
+  await user.save();
+
   // Build base response (exclude username/password)
   const baseResponse = {
     status: 'success',
