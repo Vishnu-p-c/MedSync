@@ -1,10 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getAlertsSummary } from "../api/alertsApi";
 
 function SideNav({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
+  const [alertCount, setAlertCount] = useState(0);
+
+  // Fetch alert count for badge
+  useEffect(() => {
+    const fetchAlertCount = async () => {
+      const userId = localStorage.getItem('userId');
+      if (!userId) return;
+      
+      try {
+        const response = await getAlertsSummary(userId);
+        if (response.status === 'success') {
+          setAlertCount(response.data?.critical || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching alert count:', error);
+      }
+    };
+    
+    fetchAlertCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchAlertCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     // Clear authentication data
@@ -144,7 +168,11 @@ function SideNav({ isOpen, onClose }) {
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
           </svg>
           <span>Alerts</span>
-          <span className="ml-auto w-2 h-2 bg-red-500 rounded-full"></span>
+          {alertCount > 0 && (
+            <span className="ml-auto min-w-[20px] h-5 px-1.5 bg-red-500 rounded-full text-xs font-medium flex items-center justify-center">
+              {alertCount > 99 ? '99+' : alertCount}
+            </span>
+          )}
         </a>
 
         <a 
