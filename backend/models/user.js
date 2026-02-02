@@ -29,5 +29,4 @@ const userSchema = new mongoose.Schema({
   longitude: {type: Number},
   created_at: {type: Date, default: Date.now}
 });
-
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.models.User || mongoose.model('User', userSchema);
