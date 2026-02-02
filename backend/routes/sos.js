@@ -78,12 +78,16 @@ async function sendSosNotificationToDriver(driverId, sosData) {
 
     // Calculate distance from driver's current location to patient
     let distanceKm = null;
+    let driverLatitude = null;
+    let driverLongitude = null;
     try {
       const driverLocation =
           await AmbulanceLiveLocation.findOne({driver_id: Number(driverId)})
               .lean();
       if (driverLocation && driverLocation.latitude &&
           driverLocation.longitude) {
+        driverLatitude = driverLocation.latitude;
+        driverLongitude = driverLocation.longitude;
         distanceKm = haversineDistanceKm(
             driverLocation.latitude, driverLocation.longitude, sosData.latitude,
             sosData.longitude);
@@ -94,6 +98,16 @@ async function sendSosNotificationToDriver(driverId, sosData) {
       console.error(
           `FCM: Error getting driver location for distance calc:`, locErr);
     }
+
+    // Log FCM SOS payload details
+    console.log('FCM SOS payload:', {
+      driver_id: driverId,
+      driver_latitude: driverLatitude,
+      driver_longitude: driverLongitude,
+      patient_latitude: sosData.latitude,
+      patient_longitude: sosData.longitude,
+      distance_km: distanceKm
+    });
 
     // Build FCM message
     const message = {
