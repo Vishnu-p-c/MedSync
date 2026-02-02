@@ -160,7 +160,8 @@ Success Response:
   "matched_hospitals": ["City General Hospital"],
   "unmatched_hospitals": [],
   "matched_clinics": ["Heart Care Clinic"],
-  "unmatched_clinics": ["Unknown Clinic Name"]
+  "unmatched_clinics": ["Unknown Clinic Name"],
+  "schedule_created": true
 }
 
 Failure Responses:
@@ -913,6 +914,211 @@ Failure Responses:
 { "status": "fail", "message": "missing_field: admin_id" }
 { "status": "fail", "message": "admin_id_must_be_number" }
 { "status": "fail", "message": "admin_not_found" }
+
+================================================================================
+10. APPOINTMENT BOOKING FLOW
+================================================================================
+
+These APIs support the step-by-step booking flow in the mobile app.
+
+--------------------------------------------------------------------------------
+
+GET /doctor/:doctor_id/booking-info
+--------------------------------------------------------------------------------
+Description: Get doctor details for booking fragment (Step 1).
+             Returns doctor info with list of hospitals and clinics they consult at.
+
+URL Parameters:
+  - doctor_id: number (required)
+
+Request Body: None (GET request)
+
+Success Response:
+{
+  "status": "success",
+  "doctor_id": 12,
+  "name": "Dr. Mohammed Fazil",
+  "department": "Gastroenterology",
+  "qualifications": ["MBBS", "MD"],
+  "is_available": true,
+  "hospitals": [
+    { "hospital_id": 5, "name": "City Hospital" },
+    { "hospital_id": 8, "name": "Care Medical Center" }
+  ],
+  "clinics": [
+    { "clinic_id": 2, "name": "Good Health Clinic" }
+  ]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "doctor_id_required" }
+{ "status": "fail", "message": "doctor_not_found" }
+
+--------------------------------------------------------------------------------
+
+GET /doctor/:doctor_id/schedule
+--------------------------------------------------------------------------------
+Description: Get weekly consulting schedule for a specific location (Step 2).
+             Returns which days of the week the doctor consults at the selected
+             hospital/clinic.
+
+URL Parameters:
+  - doctor_id: number (required)
+
+Query Parameters:
+  - location_type: "hospital" | "clinic" (required)
+  - location_id: number (required)
+
+Example: GET /doctor/12/schedule?location_type=hospital&location_id=5
+
+Success Response:
+{
+  "status": "success",
+  "doctor_id": 12,
+  "location": {
+    "type": "hospital",
+    "id": 5,
+    "name": "City Hospital"
+  },
+  "weekly_schedule": [
+    { "day": "monday", "start": "09:00", "end": "13:00", "slot_duration": 30, "max_patients": 4 },
+    { "day": "wednesday", "start": "14:00", "end": "18:00", "slot_duration": 30, "max_patients": 4 },
+    { "day": "friday", "start": "10:00", "end": "14:00", "slot_duration": 30, "max_patients": 4 }
+  ],
+  "available_days": ["monday", "wednesday", "friday"]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "doctor_id_required" }
+{ "status": "fail", "message": "location_type_and_location_id_required" }
+{ "status": "fail", "message": "invalid_location_type" }
+{ "status": "fail", "message": "schedule_not_found" }
+{ "status": "fail", "message": "no_schedule_for_this_location" }
+
+--------------------------------------------------------------------------------
+
+GET /doctor/:doctor_id/slots
+--------------------------------------------------------------------------------
+Description: Get available time slots for a specific date (Step 3).
+             Generates time slots based on schedule, checks existing bookings,
+             and returns availability status for each slot.
+
+URL Parameters:
+  - doctor_id: number (required)
+
+Query Parameters:
+  - location_type: "hospital" | "clinic" (required)
+  - location_id: number (required)
+  - date: "YYYY-MM-DD" (required)
+
+Example: GET /doctor/12/slots?location_type=hospital&location_id=5&date=2026-01-23
+
+Success Response:
+{
+  "status": "success",
+  "doctor_id": 12,
+  "date": "2026-01-23",
+  "day": "friday",
+  "location": {
+    "type": "hospital",
+    "id": 5,
+    "name": "City Hospital"
+  },
+  "schedule": {
+    "start": "10:00",
+    "end": "14:00",
+    "slot_duration": 30
+  },
+  "slots": [
+    { "time": "10:00", "status": "available", "booked": 1, "max": 4, "available": 3 },
+    { "time": "10:30", "status": "few_slots", "booked": 3, "max": 4, "available": 1 },
+    { "time": "11:00", "status": "rush_hours", "booked": 4, "max": 4, "available": 0 },
+    { "time": "11:30", "status": "available", "booked": 1, "max": 4, "available": 3 },
+    { "time": "12:00", "status": "available", "booked": 0, "max": 4, "available": 4 },
+    { "time": "12:30", "status": "booked", "booked": 4, "max": 4, "available": 0 },
+    { "time": "13:00", "status": "available", "booked": 2, "max": 4, "available": 2 },
+    { "time": "13:30", "status": "available", "booked": 1, "max": 4, "available": 3 }
+  ]
+}
+
+Slot Status Legend:
+  - "available": Slots open (< 50% booked)
+  - "few_slots": 50-75% booked
+  - "rush_hours": > 75% booked or hospital rush_level is high
+  - "booked": No slots available
+
+Success Response (doctor not available on that day):
+{
+  "status": "success",
+  "doctor_id": 12,
+  "date": "2026-01-24",
+  "location": { "type": "hospital", "id": 5, "name": "City Hospital" },
+  "message": "doctor_not_available_on_this_day",
+  "slots": []
+}
+
+Failure Responses:
+{ "status": "fail", "message": "doctor_id_required" }
+{ "status": "fail", "message": "location_type_location_id_and_date_required" }
+{ "status": "fail", "message": "invalid_location_type" }
+{ "status": "fail", "message": "invalid_date_format" }
+{ "status": "fail", "message": "schedule_not_found" }
+{ "status": "fail", "message": "no_schedule_for_this_location" }
+
+--------------------------------------------------------------------------------
+
+POST /doctor/appointment/book
+--------------------------------------------------------------------------------
+Description: Book an appointment (Step 4 - Final).
+             Validates slot availability and creates the appointment.
+
+Request Body:
+{
+  "patient_id": number (required),
+  "doctor_id": number (required),
+  "location_type": "hospital" | "clinic" (required),
+  "location_id": number (required),
+  "appointment_date": "YYYY-MM-DD" (required),
+  "appointment_time": "HH:MM" (required, 24-hour format)
+}
+
+Example Request:
+{
+  "patient_id": 101,
+  "doctor_id": 12,
+  "location_type": "hospital",
+  "location_id": 5,
+  "appointment_date": "2026-01-23",
+  "appointment_time": "11:30"
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "appointment_booked_successfully",
+  "appointment": {
+    "appointment_id": 5001,
+    "doctor_id": 12,
+    "doctor_name": "Dr. Mohammed Fazil",
+    "location_type": "hospital",
+    "location_name": "City Hospital",
+    "date": "2026-01-23",
+    "time": "11:30",
+    "token_number": 3
+  }
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["patient_id", "appointment_time"] }
+{ "status": "fail", "message": "invalid_location_type" }
+{ "status": "fail", "message": "patient_not_found" }
+{ "status": "fail", "message": "doctor_not_found" }
+{ "status": "fail", "message": "invalid_date_or_time" }
+{ "status": "fail", "message": "appointment_time_cannot_be_in_past" }
+{ "status": "fail", "message": "doctor_schedule_not_found" }
+{ "status": "fail", "message": "doctor_does_not_consult_at_this_location" }
+{ "status": "fail", "message": "doctor_not_available_on_this_day" }
+{ "status": "fail", "message": "slot_fully_booked" }
 
 ================================================================================
                               END OF API REFERENCE
