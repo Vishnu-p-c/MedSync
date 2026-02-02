@@ -5,7 +5,7 @@ const Stock = require('../models/Stock');
 const Appointment = require('../models/Appointment');
 const Hospital = require('../models/Hospital');
 const Clinic = require('../models/Clinic');
-const User = require('../models/user');
+const User = require('../models/User');
 const DoctorAttendanceLog = require('../models/DoctorAttendanceLog');
 
 // Controller to get the number of doctors in the admin's hospital
