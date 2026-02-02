@@ -86,8 +86,37 @@ export const getDepartments = async (adminId) => {
     }
 };
 
+/**
+ * Add a new doctor to the admin's hospital/clinic
+ * @param {Object} doctorData - The doctor data to add
+ * @returns {Promise<Object>} - Result of the operation
+ */
+export const addDoctor = async (doctorData) => {
+    try {
+        const response = await axiosInstance.post('/admin/dashboard/doctors/add', doctorData);
+        if (response.data.status === 'success') {
+            return {
+                success: true,
+                data: response.data.data,
+                message: response.data.message
+            };
+        }
+        return { 
+            success: false, 
+            error: response.data.message 
+        };
+    } catch (error) {
+        console.error('Error adding doctor:', error);
+        return {
+            success: false,
+            error: error.response?.data?.message || 'Network error'
+        };
+    }
+};
+
 export default {
     getDoctorsForAdmin,
     searchDoctors,
-    getDepartments
+    getDepartments,
+    addDoctor
 };

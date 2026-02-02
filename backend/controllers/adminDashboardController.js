@@ -541,3 +541,157 @@ exports.getDepartments = async (req, res) => {
         });
     }
 };
+
+// Controller to add a new doctor to the admin's hospital/clinic
+const bcrypt = require('bcrypt');
+
+exports.addDoctor = async (req, res) => {
+    try {
+        const {
+            admin_id,
+            first_name,
+            last_name,
+            username,
+            email,
+            password,
+            phone,
+            date_of_birth,
+            gender,
+            mrn,
+            department,
+            qualifications
+        } = req.body;
+
+        // Validate required fields
+        const missing = [];
+        if (!admin_id) missing.push('admin_id');
+        if (!first_name) missing.push('first_name');
+        if (!username) missing.push('username');
+        if (!email) missing.push('email');
+        if (!password) missing.push('password');
+        if (!phone) missing.push('phone');
+        if (!date_of_birth) missing.push('date_of_birth');
+        if (!gender) missing.push('gender');
+        if (!mrn) missing.push('mrn');
+        if (!department) missing.push('department');
+
+        if (missing.length) {
+            return res.status(400).json({
+                status: 'fail',
+                message: 'missing_fields',
+                missing
+            });
+        }
+
+        // Find which hospital/clinic this admin manages
+        const adminRecord = await HospitalAdmin.findOne({ admin_id: parseInt(admin_id) });
+
+        if (!adminRecord) {
+            return res.status(404).json({
+                status: 'fail',
+                message: 'Admin not found or not assigned to any facility'
+            });
+        }
+
+        const facilityId = adminRecord.hospital_id || adminRecord.clinic_id;
+        const facilityType = adminRecord.admin_type;
+
+        // Check if username, email, or phone already exists
+        const existingUser = await User.findOne({
+            $or: [{ username }, { email }, { phone }]
+        }).lean();
+
+        if (existingUser) {
+            let conflictField = 'user';
+            if (existingUser.username === username) conflictField = 'username';
+            else if (existingUser.email === email) conflictField = 'email';
+            else if (existingUser.phone === phone) conflictField = 'phone';
+            
+            return res.status(409).json({
+                status: 'fail',
+                message: `${conflictField}_already_exists`
+            });
+        }
+
+        // Check if MRN already exists
+        const existingDoctor = await Doctor.findOne({ mrn }).lean();
+        if (existingDoctor) {
+            return res.status(409).json({
+                status: 'fail',
+                message: 'mrn_already_exists'
+            });
+        }
+
+        // Generate new user_id
+        const lastUser = await User.findOne().sort({ user_id: -1 }).lean();
+        const newUserId = (lastUser?.user_id || 0) + 1;
+
+        // Hash the password
+        const password_hash = await bcrypt.hash(password, 10);
+
+        // Create the User record
+        const newUser = new User({
+            user_id: newUserId,
+            first_name,
+            last_name: last_name || '',
+            username,
+            password_hash,
+            role: 'doctor',
+            email,
+            phone,
+            date_of_birth: new Date(date_of_birth),
+            gender
+        });
+
+        await newUser.save();
+
+        // Create the Doctor record
+        const qualificationsArray = Array.isArray(qualifications) 
+            ? qualifications 
+            : (qualifications ? [qualifications] : []);
+
+        const doctorData = {
+            doctor_id: newUserId,
+            first_name,
+            last_name: last_name || '',
+            name: `Dr. ${first_name} ${last_name || ''}`.trim(),
+            mrn,
+            department,
+            qualifications: qualificationsArray,
+            multi_place: false,
+            is_available: false
+        };
+
+        // Assign to the admin's facility
+        if (facilityType === 'hospital') {
+            doctorData.hospital_id = [facilityId];
+        } else {
+            doctorData.clinic_id = [facilityId];
+        }
+
+        const newDoctor = new Doctor(doctorData);
+        await newDoctor.save();
+
+        return res.status(201).json({
+            status: 'success',
+            message: 'Doctor added successfully',
+            data: {
+                user_id: newUserId,
+                doctor_id: newUserId,
+                name: doctorData.name,
+                username,
+                email,
+                department,
+                mrn
+            }
+        });
+
+    } catch (error) {
+        console.error('Error adding doctor:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
