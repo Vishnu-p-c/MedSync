@@ -632,9 +632,11 @@ Success Response:
       "doctor_name": "Dr. Sarah Johnson",
       "department": "Cardiology",
       "hospital_id": 1,
+      "clinic_id": null,
       "consultation_place": "hospital",
       "clinic_name": null,
       "appointment_time": "2026-02-15T10:30:00.000Z",
+      "token_number": 3,
       "status": "upcoming",
       "created_at": "2026-01-31T12:00:00.000Z"
     }
@@ -671,9 +673,11 @@ Success Response:
       "patient_id": 16,
       "patient_name": "Jane Williams",
       "hospital_id": 1,
+      "clinic_id": null,
       "consultation_place": "hospital",
       "clinic_name": null,
       "appointment_time": "2026-02-15T10:30:00.000Z",
+      "token_number": 2,
       "status": "upcoming",
       "created_at": "2026-01-31T12:00:00.000Z"
     }
@@ -684,9 +688,11 @@ Success Response:
       "patient_id": 17,
       "patient_name": "John Doe",
       "hospital_id": 1,
+      "clinic_id": null,
       "consultation_place": "hospital",
       "clinic_name": null,
       "appointment_time": "2026-01-20T09:00:00.000Z",
+      "token_number": 1,
       "status": "completed",
       "created_at": "2026-01-15T10:00:00.000Z"
     }
@@ -1178,130 +1184,819 @@ Failure Responses:
 { "status": "fail", "message": "doctor_not_available_on_this_day" }
 { "status": "fail", "message": "slot_fully_booked" }
 
-================================================================================
-                              END OF API REFERENCE
-================================================================================
-=================================================================
-MEDSYNC API DOCUMENTATION - LATEST UPDATES
-Date: January 30, 2026
-=================================================================
+--------------------------------------------------------------------------------
 
-NEW ENDPOINT ADDED:
-=================================================================
+POST /hospital/total_equipment
+--------------------------------------------------------------------------------
+Description: Get all equipment for a hospital with status and last checked date.
+
+Request Body:
+{
+  "hospital_id": number (required),
+  "admin_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "hospital_id": 1,
+  "total_equipment": 15,
+  "equipment": [
+    {
+      "equipment_id": 1,
+      "name": "MRI Scanner",
+      "status": "working",
+      "last_checked": "2026-01-31T10:00:00.000Z"
+    }
+  ]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_field: hospital_id" }
+{ "status": "fail", "message": "missing_field: admin_id" }
+{ "status": "fail", "message": "hospital_id_and_admin_id_must_be_numbers" }
+{ "status": "fail", "message": "admin_not_authorized_for_hospital" }
+
+================================================================================
+11. SOS DASHBOARD APIS (Admin)
+================================================================================
+
+GET /sos/summary
+--------------------------------------------------------------------------------
+Description: Get summary statistics for SOS requests.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": {
+    "total": 50,
+    "pending": 5,
+    "assigned": 10,
+    "completed": 30,
+    "cancelled": 5
+  }
+}
+
+--------------------------------------------------------------------------------
+
+GET /sos/recent
+--------------------------------------------------------------------------------
+Description: Get recent SOS requests.
+
+Query Parameters:
+  - admin_id: number (required)
+  - limit: number (optional, defaults to 10)
+
+Success Response:
+{
+  "status": "success",
+  "data": [
+    {
+      "sos_id": 1706300000000,
+      "patient_id": 16,
+      "patient_name": "Jane Williams",
+      "status": "assigned",
+      "severity": "moderate",
+      "created_at": "2026-02-04T10:30:00.000Z"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+
+GET /sos/severity
+--------------------------------------------------------------------------------
+Description: Get SOS requests grouped by severity level.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": {
+    "critical": 5,
+    "severe": 10,
+    "moderate": 20,
+    "mild": 15,
+    "unknown": 0
+  }
+}
+
+--------------------------------------------------------------------------------
+
+GET /sos/trend
+--------------------------------------------------------------------------------
+Description: Get SOS request trend data over time.
+
+Query Parameters:
+  - admin_id: number (required)
+  - period: "day" | "week" | "month" (optional, defaults to "day")
+
+Success Response:
+{
+  "status": "success",
+  "data": [
+    { "label": "00:00", "count": 2 },
+    { "label": "01:00", "count": 1 },
+    ...
+  ]
+}
+
+================================================================================
+12. ADMIN DASHBOARD APIS
+================================================================================
+
+GET /admin/hospital-info
+--------------------------------------------------------------------------------
+Description: Get hospital/clinic info and admin details for the logged-in admin.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": {
+    "id": 1,
+    "name": "City General Hospital",
+    "type": "hospital",
+    "address": "123 Main Street",
+    "rushLevel": "medium",
+    "admin": {
+      "firstName": "Jane",
+      "lastName": "Admin",
+      "fullName": "Jane Admin",
+      "email": "jane.admin@hospital.com",
+      "role": "admin"
+    }
+  },
+  "timestamp": "2026-02-04T12:00:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id is required" }
+{ "status": "fail", "message": "Admin not found or not assigned to any facility" }
+{ "status": "fail", "message": "Facility not found" }
+
+--------------------------------------------------------------------------------
+
+GET /admin/doctors-count
+--------------------------------------------------------------------------------
+Description: Get count of doctors in the admin's hospital/clinic.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "facilityId": 1,
+  "facilityType": "hospital",
+  "totalDoctors": 25,
+  "doctorsOnDuty": 15
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id is required and must be a number" }
+{ "status": "fail", "message": "Admin not found or not assigned to any hospital" }
+{ "status": "fail", "message": "Admin not assigned to any facility" }
+
+--------------------------------------------------------------------------------
+
+GET /admin/doctors
+--------------------------------------------------------------------------------
+Description: Get list of doctors for the admin's hospital/clinic with search and filter.
+
+Query Parameters:
+  - admin_id: number (required)
+  - search: string (optional, searches name/department/MRN)
+  - filterBy: "department" | "status" (optional)
+  - filterValue: string (optional, e.g., "Cardiology" or "on-duty")
+
+Success Response:
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 1,
+      "name": "Dr. Sarah Johnson",
+      "firstName": "Sarah",
+      "lastName": "Johnson",
+      "department": "Cardiology",
+      "status": "On-Duty",
+      "isAvailable": true,
+      "lastCheckIn": "10:30 AM IST",
+      "mrn": "MRN001",
+      "qualifications": ["MBBS", "MD"],
+      "hospitals": ["City General Hospital"],
+      "clinics": []
+    }
+  ],
+  "count": 25,
+  "facilityId": 1,
+  "facilityType": "hospital"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id is required" }
+{ "status": "fail", "message": "Admin not found or not assigned to any facility" }
+
+--------------------------------------------------------------------------------
+
+GET /admin/doctors/departments
+--------------------------------------------------------------------------------
+Description: Get unique departments for filtering in the admin's facility.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": ["Cardiology", "Neurology", "Orthopedics", "Pediatrics"]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id is required" }
+{ "status": "fail", "message": "Admin not found or not assigned to any facility" }
+
+--------------------------------------------------------------------------------
+
+GET /admin/critical-alerts
+--------------------------------------------------------------------------------
+Description: Get critical alerts (equipment issues and low stock) for admin's facility.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "eq-1",
+      "type": "Equipment Fault",
+      "item": "MRI Scanner",
+      "message": "Equipment is not operational",
+      "severity": "critical",
+      "category": "equipment",
+      "lastUpdated": "2026-02-04T10:00:00.000Z"
+    },
+    {
+      "id": "st-5",
+      "type": "Low Stock",
+      "item": "Surgical Gloves (Critical)",
+      "message": "Only 3 units remaining",
+      "severity": "critical",
+      "category": "stock",
+      "quantity": 3,
+      "lastUpdated": "2026-02-04T09:00:00.000Z"
+    }
+  ],
+  "count": 5,
+  "timestamp": "2026-02-04T12:00:00.000Z"
+}
+
+--------------------------------------------------------------------------------
+
+GET /admin/patient-inflow
+--------------------------------------------------------------------------------
+Description: Get patient inflow data for the last 24 hours (hourly breakdown).
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": [
+    { "hour": 0, "label": "00:00", "count": 5 },
+    { "hour": 1, "label": "01:00", "count": 3 },
+    ...
+  ],
+  "summary": {
+    "total": 120,
+    "max": 15,
+    "average": 5.0
+  },
+  "timestamp": "2026-02-04T12:00:00.000Z"
+}
+
+--------------------------------------------------------------------------------
+
+POST /admin/doctors/add
+--------------------------------------------------------------------------------
+Description: Add a new doctor to the admin's hospital/clinic.
+
+Request Body:
+{
+  "admin_id": number (required),
+  "first_name": "string (required)",
+  "last_name": "string (optional)",
+  "username": "string (required)",
+  "email": "string (required)",
+  "password": "string (required)",
+  "phone": "string (required)",
+  "date_of_birth": "YYYY-MM-DD (required)",
+  "gender": "male | female | other (required)",
+  "mrn": "string (required)",
+  "department": "string (required)",
+  "qualifications": ["MBBS", "MD"] (optional, array of strings)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "Doctor added successfully",
+  "data": {
+    "user_id": 30,
+    "doctor_id": 30,
+    "name": "Dr. John Smith",
+    "username": "john_doc",
+    "email": "john@hospital.com",
+    "department": "Cardiology",
+    "mrn": "MRN030"
+  }
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["first_name", "mrn"] }
+{ "status": "fail", "message": "Admin not found or not assigned to any facility" }
+{ "status": "fail", "message": "username_already_exists" }
+{ "status": "fail", "message": "email_already_exists" }
+{ "status": "fail", "message": "mrn_already_exists" }
+{ "status": "fail", "message": "invalid_date_of_birth" }
+
+================================================================================
+13. ADMIN AMBULANCE MANAGEMENT
+================================================================================
+
+GET /admin/ambulance/drivers
+--------------------------------------------------------------------------------
+Description: Get all ambulance drivers near the admin's hospital district.
+
+Query Parameters:
+  - admin_id: number (required)
+  - max_distance: number (optional, max distance in km, defaults to 50)
+
+Success Response:
+{
+  "status": "success",
+  "hospital_id": 1,
+  "hospital_name": "City General Hospital",
+  "total_drivers": 10,
+  "active_drivers": 6,
+  "inactive_drivers": 4,
+  "data": [
+    {
+      "driver_id": 11,
+      "first_name": "Mike",
+      "last_name": "Anderson",
+      "full_name": "Mike Anderson",
+      "license_number": "DL123",
+      "vehicle_number": "ABC1234",
+      "is_active": true,
+      "status": "Active",
+      "last_login": "2026-02-04T08:00:00.000Z",
+      "distance_km": 5.2,
+      "last_location": {
+        "latitude": 40.7300,
+        "longitude": -74.0050,
+        "updated_at": "2026-02-04T11:55:00.000Z"
+      },
+      "current_assignment": {
+        "assignment_id": 100,
+        "sos_id": 1706300000000,
+        "patient_name": "Jane Williams",
+        "assigned_at": "2026-02-04T11:30:00.000Z",
+        "eta": 10
+      }
+    }
+  ]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id is required" }
+{ "status": "fail", "message": "Admin not found or not assigned to any hospital" }
+{ "status": "fail", "message": "Hospital not found" }
+
+--------------------------------------------------------------------------------
+
+GET /admin/ambulance/summary
+--------------------------------------------------------------------------------
+Description: Get summary statistics for ambulance drivers.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": {
+    "total": 10,
+    "active": 6,
+    "inactive": 4,
+    "on_assignment": 2,
+    "available": 4
+  }
+}
+
+--------------------------------------------------------------------------------
+
+PUT /admin/ambulance/driver-status
+--------------------------------------------------------------------------------
+Description: Update a driver's active/inactive status (admin override).
+
+Request Body:
+{
+  "driver_id": number (required),
+  "is_active": boolean (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "Driver status updated to active",
+  "data": {
+    "driver_id": 11,
+    "is_active": true
+  }
+}
+
+Failure Responses:
+{ "status": "fail", "message": "driver_id is required" }
+{ "status": "fail", "message": "is_active is required" }
+{ "status": "fail", "message": "Driver not found" }
+
+================================================================================
+14. ALERTS MANAGEMENT
+================================================================================
+
+GET /alerts
+--------------------------------------------------------------------------------
+Description: Get all alerts for the admin's hospital (equipment, stock, SOS, ambulance).
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "eq-1",
+      "type": "critical",
+      "category": "Equipment",
+      "title": "MRI Scanner",
+      "message": "Equipment is not operational and requires immediate attention",
+      "status": "down",
+      "timestamp": "2026-02-04T10:00:00.000Z",
+      "isRead": false
+    },
+    {
+      "id": "st-5",
+      "type": "warning",
+      "category": "Stock",
+      "title": "Surgical Masks",
+      "message": "Low stock: 8 units remaining",
+      "quantity": 8,
+      "timestamp": "2026-02-04T09:30:00.000Z",
+      "isRead": false
+    },
+    {
+      "id": "sos-1706300000000",
+      "type": "critical",
+      "category": "Emergency",
+      "title": "SOS Request #1706300000000",
+      "message": "Emergency request pending - awaiting dispatch",
+      "status": "pending",
+      "timestamp": "2026-02-04T11:00:00.000Z",
+      "isRead": false
+    }
+  ],
+  "summary": {
+    "total": 15,
+    "critical": 5,
+    "warning": 7,
+    "info": 3
+  },
+  "timestamp": "2026-02-04T12:00:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id is required" }
+
+--------------------------------------------------------------------------------
+
+GET /alerts/summary
+--------------------------------------------------------------------------------
+Description: Get alerts summary count (for sidebar badge).
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": {
+    "total": 15,
+    "critical": 5,
+    "equipment": 8,
+    "stock": 7
+  }
+}
+
+--------------------------------------------------------------------------------
+
+POST /alerts/read
+--------------------------------------------------------------------------------
+Description: Mark an alert as read.
+
+Request Body:
+{
+  "alert_id": "string (required)",
+  "admin_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "Alert marked as read",
+  "alert_id": "eq-1"
+}
+
+================================================================================
+15. SETTINGS
+================================================================================
+
+GET /settings/profile
+--------------------------------------------------------------------------------
+Description: Get user profile information.
+
+Query Parameters:
+  - user_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": {
+    "user_id": 1,
+    "first_name": "John",
+    "last_name": "Smith",
+    "email": "john@example.com",
+    "phone": "1234567890",
+    "username": "johnsmith",
+    "role": "admin",
+    "date_of_birth": "1990-01-01T00:00:00.000Z",
+    "gender": "male",
+    "address": "123 Main Street",
+    "created_at": "2026-01-01T00:00:00.000Z"
+  }
+}
+
+Failure Responses:
+{ "status": "error", "message": "User ID is required" }
+{ "status": "error", "message": "User not found" }
+
+--------------------------------------------------------------------------------
+
+PUT /settings/profile
+--------------------------------------------------------------------------------
+Description: Update user profile information.
+
+Request Body:
+{
+  "user_id": number (required),
+  "first_name": "string (optional)",
+  "last_name": "string (optional)",
+  "email": "string (optional)",
+  "phone": "string (optional)",
+  "address": "string (optional)",
+  "date_of_birth": "YYYY-MM-DD (optional)",
+  "gender": "male | female | other (optional)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "Profile updated successfully",
+  "data": {
+    "user_id": 1,
+    "first_name": "John",
+    "last_name": "Smith",
+    "email": "john@example.com",
+    "phone": "1234567890",
+    "username": "johnsmith",
+    "role": "admin",
+    "fullName": "John Smith"
+  }
+}
+
+Failure Responses:
+{ "status": "error", "message": "User ID is required" }
+{ "status": "error", "message": "Email is already in use" }
+{ "status": "error", "message": "User not found" }
+
+--------------------------------------------------------------------------------
+
+PUT /settings/password
+--------------------------------------------------------------------------------
+Description: Change user password.
+
+Request Body:
+{
+  "user_id": number (required),
+  "current_password": "string (required)",
+  "new_password": "string (required, min 6 characters)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "Password changed successfully"
+}
+
+Failure Responses:
+{ "status": "error", "message": "User ID, current password, and new password are required" }
+{ "status": "error", "message": "New password must be at least 6 characters long" }
+{ "status": "error", "message": "User not found" }
+{ "status": "error", "message": "Current password is incorrect" }
+
+--------------------------------------------------------------------------------
+
+GET /settings/hospital
+--------------------------------------------------------------------------------
+Description: Get hospital info for admin.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "data": {
+    "hospital_id": 1,
+    "name": "City General Hospital",
+    "address": "123 Main Street",
+    "phone": "555-1234",
+    "email": "info@hospital.com",
+    "district": "Downtown",
+    "latitude": 40.7128,
+    "longitude": -74.0060
+  }
+}
+
+Failure Responses:
+{ "status": "error", "message": "Admin ID is required" }
+{ "status": "error", "message": "Hospital admin not found" }
+{ "status": "error", "message": "Hospital not found" }
+
+--------------------------------------------------------------------------------
+
+PUT /settings/hospital
+--------------------------------------------------------------------------------
+Description: Update hospital information (admin only).
+
+Request Body:
+{
+  "admin_id": number (required),
+  "name": "string (optional)",
+  "address": "string (optional)",
+  "phone": "string (optional)",
+  "email": "string (optional)",
+  "district": "string (optional)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "Hospital info updated successfully",
+  "data": {
+    "hospital_id": 1,
+    "name": "City General Hospital",
+    "address": "123 Main Street Updated",
+    "phone": "555-5678",
+    "email": "contact@hospital.com",
+    "district": "Downtown"
+  }
+}
+
+Failure Responses:
+{ "status": "error", "message": "Admin ID is required" }
+{ "status": "error", "message": "Hospital admin not found" }
+{ "status": "error", "message": "Hospital not found" }
+
+================================================================================
+16. RUSH LEVEL MANAGEMENT
+================================================================================
+
+GET /rush/level
+--------------------------------------------------------------------------------
+Description: Get current rush level for admin's facility.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "rushLevel": "MEDIUM",
+  "facilityName": "City General Hospital",
+  "facilityType": "hospital",
+  "timestamp": "2026-02-04T12:00:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id is required" }
+{ "status": "fail", "message": "Admin not found" }
+
+--------------------------------------------------------------------------------
+
+PUT /rush/level
+--------------------------------------------------------------------------------
+Description: Manually update rush level for admin's facility.
+
+Request Body:
+{
+  "admin_id": number (required),
+  "rush_level": "low | medium | high | critical" (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "Rush level updated successfully",
+  "rushLevel": "HIGH",
+  "facilityName": "City General Hospital",
+  "timestamp": "2026-02-04T12:00:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id and rush_level are required" }
+{ "status": "fail", "message": "Invalid rush level. Must be: low, medium, high, or critical" }
+{ "status": "fail", "message": "Admin not found" }
+{ "status": "fail", "message": "Facility not found" }
+
+--------------------------------------------------------------------------------
+
+GET /rush/calculate
+--------------------------------------------------------------------------------
+Description: Calculate rush level automatically based on metrics (doctor availability, 
+             pending SOS requests). Does not update the facility's rush level.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "calculatedRushLevel": "MEDIUM",
+  "metrics": {
+    "totalDoctors": 25,
+    "availableDoctors": 15,
+    "doctorAvailabilityRatio": 0.6,
+    "pendingSosRequests": 3
+  },
+  "timestamp": "2026-02-04T12:00:00.000Z"
+}
+
+Rush Level Calculation Logic:
+  - CRITICAL: pendingSOS >= 10 OR doctorRatio < 0.2
+  - HIGH: pendingSOS >= 5 OR doctorRatio < 0.4
+  - MEDIUM: pendingSOS >= 2 OR doctorRatio < 0.6
+  - LOW: Default
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id is required" }
+{ "status": "fail", "message": "Admin not found" }
+
+================================================================================
+17. ADDITIONAL DRIVER ENDPOINT
+================================================================================
 
 GET /driver/active-count
--------------------------
-Description: Returns the count of active (on-duty) ambulance drivers
-
-Base URL: http://localhost:5000 (Development)
-          https://medsync-android-backend.onrender.com (Production)
-
-Full Endpoint: /driver/active-count
-
-Request Method: GET
-
-Request Headers:
-  Content-Type: application/json
+--------------------------------------------------------------------------------
+Description: Returns the count of active (on-duty) ambulance drivers.
 
 Request Body: None (GET request)
 
-Response (Success - 200 OK):
-{
-  "status": "success",
-  "activeDrivers": <number>
-}
-
-Example Response:
+Success Response:
 {
   "status": "success",
   "activeDrivers": 8
 }
 
-Response (Error - 500 Internal Server Error):
-{
-  "status": "error",
-  "message": "server_error"
-}
+Failure Response:
+{ "status": "error", "message": "server_error" }
 
-Usage Example (JavaScript/Axios):
-```javascript
-import axiosInstance from '../utils/axiosInstance';
+Note: This endpoint counts ambulance drivers who have toggled their duty status 
+      to "on" via POST /driver/duty. The count updates in real-time.
 
-const response = await axiosInstance.get('/driver/active-count');
-if (response.data.status === 'success') {
-  console.log('Active drivers:', response.data.activeDrivers);
-}
-```
-
-Usage Example (Fetch API):
-```javascript
-fetch('http://localhost:5000/driver/active-count')
-  .then(res => res.json())
-  .then(data => {
-    if (data.status === 'success') {
-      console.log('Active drivers:', data.activeDrivers);
-    }
-  })
-  .catch(err => console.error('Error:', err));
-```
-
-Frontend Integration:
-- Used in: AdminDashboard.jsx (Dashboard page)
-- Used in: ActiveAmbulance.jsx (Component)
-- Purpose: Display active ambulance count on dashboard
-
-Backend Implementation:
-- File: backend/routes/driver.js
-- Database Query: AmbulanceDriver.countDocuments({is_active: true})
-- Returns count of ambulance drivers with is_active field set to true
-
-Notes:
-- This endpoint counts ambulance drivers who have toggled their duty status to "on"
-- The count updates in real-time as drivers change their duty status via POST /driver/duty
-- No authentication required (add if needed for production)
-- Response time: ~50-100ms (depends on database load)
-
-=================================================================
-EXISTING RELATED ENDPOINTS:
-=================================================================
-
-POST /driver/duty
------------------
-Description: Toggle driver duty status (on/off)
-
-Request Body:
-{
-  "driver_id": <number>,
-  "on_duty": <boolean>
-}
-
-Response:
-{
-  "status": "success",
-  "driver_id": <number>,
-  "is_active": <boolean>
-}
-
-POST /driver/location
----------------------
-Description: Update driver's live location (only when on duty)
-
-Request Body:
-{
-  "driver_id": <number>,
-  "latitude": <number>,
-  "longitude": <number>
-}
-
-Response:
-{
-  "status": "success",
-  "driver_id": <number>,
-  "latitude": <number>,
-  "longitude": <number>
-}
-
-=================================================================
-END OF DOCUMENTATION
-=================================================================
+================================================================================
+                              END OF API REFERENCE
+================================================================================
 

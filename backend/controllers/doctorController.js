@@ -157,9 +157,11 @@ const getPatientAppointments = async (req, res) => {
                 'Unknown',
             department: doctor ? doctor.department : 'Unknown',
             hospital_id: apt.hospital_id,
+            clinic_id: apt.clinic_id,
             consultation_place: apt.consultation_place,
             clinic_name: apt.clinic_name,
             appointment_time: apt.appointment_time,
+            token_number: apt.token_number,
             status: apt.status,
             created_at: apt.created_at
           };
@@ -225,9 +227,11 @@ const getDoctorAppointments = async (req, res) => {
             `${patient.first_name} ${patient.last_name || ''}`.trim() :
             'Unknown',
         hospital_id: apt.hospital_id,
+        clinic_id: apt.clinic_id,
         consultation_place: apt.consultation_place,
         clinic_name: apt.clinic_name,
         appointment_time: apt.appointment_time,
+        token_number: apt.token_number,
         status: apt.status,
         created_at: apt.created_at
       };
@@ -907,6 +911,9 @@ const bookAppointment = async (req, res) => {
     // Get location name
     let locationName = locationSchedule.location_name;
 
+    // Calculate token number (position in queue for that slot)
+    const tokenNumber = existingCount + 1;
+
     // Create appointment
     const appointment = new Appointment({
       appointment_id,
@@ -917,13 +924,11 @@ const bookAppointment = async (req, res) => {
       consultation_place: location_type,
       clinic_name: location_type === 'clinic' ? locationName : null,
       appointment_time: appointmentDateTime,
+      token_number: tokenNumber,
       status: 'upcoming'
     });
 
     await appointment.save();
-
-    // Calculate token number (position in queue for that slot)
-    const tokenNumber = existingCount + 1;
 
     return res.json({
       status: 'success',
