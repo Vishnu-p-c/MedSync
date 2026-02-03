@@ -15,6 +15,8 @@ const appointmentSchema = new mongoose.Schema({
   // Used when consultation_place === 'clinic'
   clinic_name: {type: String, default: null, trim: true, maxLength: 200},
   appointment_time: {type: Date},
+  // Token number indicating queue position for the time slot
+  token_number: {type: Number, default: null},
   status: {
     type: String,
     enum: ['upcoming', 'cancelled', 'completed'],
