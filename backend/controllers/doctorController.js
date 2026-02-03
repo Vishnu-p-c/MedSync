@@ -149,6 +149,15 @@ const getPatientAppointments = async (req, res) => {
     const appointmentsWithDetails =
         await Promise.all(appointments.map(async (apt) => {
           const doctor = await Doctor.findOne({doctor_id: apt.doctor_id});
+
+          // Fetch hospital name if hospital_id exists
+          let hospital_name = null;
+          if (apt.hospital_id) {
+            const hospital =
+                await Hospital.findOne({hospital_id: apt.hospital_id});
+            hospital_name = hospital ? hospital.name : null;
+          }
+
           return {
             appointment_id: apt.appointment_id,
             doctor_id: apt.doctor_id,
@@ -157,6 +166,7 @@ const getPatientAppointments = async (req, res) => {
                 'Unknown',
             department: doctor ? doctor.department : 'Unknown',
             hospital_id: apt.hospital_id,
+            hospital_name: hospital_name,
             clinic_id: apt.clinic_id,
             consultation_place: apt.consultation_place,
             clinic_name: apt.clinic_name,
