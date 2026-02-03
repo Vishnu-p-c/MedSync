@@ -6,6 +6,8 @@ const appointmentSchema = new mongoose.Schema({
   doctor_id: {type: Number, ref: 'DoctorDetails'},
   // Null by default so appointments can be clinic-based
   hospital_id: {type: Number, ref: 'Hospital', default: null},
+  // Clinic ID when consultation_place is 'clinic'
+  clinic_id: {type: Number, ref: 'Clinic', default: null},
   // Where the consultation happens (supports doctors who consult in
   // clinic/hospital/both)
   consultation_place:
