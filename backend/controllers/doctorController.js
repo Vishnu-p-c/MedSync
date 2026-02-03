@@ -570,16 +570,16 @@ const generateTimeSlots = (start, end, duration) => {
 const getDoctorSlots = async (req, res) => {
   try {
     const {doctor_id} = req.params;
-    const {location_type, location_id, date} = req.query;
+    const {location_type, location_id, date, patient_id} = req.query;
 
     // Validate inputs
     if (!doctor_id) {
       return res.json({status: 'fail', message: 'doctor_id_required'});
     }
-    if (!location_type || !location_id || !date) {
+    if (!location_type || !location_id || !date || !patient_id) {
       return res.json({
         status: 'fail',
-        message: 'location_type_location_id_and_date_required'
+        message: 'location_type_location_id_date_and_patient_id_required'
       });
     }
     if (!['hospital', 'clinic'].includes(location_type)) {
@@ -677,6 +677,32 @@ const getDoctorSlots = async (req, res) => {
       bookingCount[timeKey] = (bookingCount[timeKey] || 0) + 1;
     }
 
+    // Check patient's existing bookings for this date and location (if
+    // patient_id provided)
+    const patientBookedSlots = new Set();
+    if (patient_id) {
+      const patientBookingQuery = {
+        patient_id: parseInt(patient_id),
+        appointment_time: {$gte: startOfDay, $lte: endOfDay},
+        status: {$ne: 'cancelled'}
+      };
+      // Add location-specific check
+      if (location_type === 'hospital') {
+        patientBookingQuery.hospital_id = parseInt(location_id);
+      } else {
+        patientBookingQuery.clinic_id = parseInt(location_id);
+      }
+
+      const patientAppointments =
+          await Appointment.find(patientBookingQuery).lean();
+      for (const apt of patientAppointments) {
+        const aptTime = new Date(apt.appointment_time);
+        const timeKey = `${String(aptTime.getHours()).padStart(2, '0')}:${
+            String(aptTime.getMinutes()).padStart(2, '0')}`;
+        patientBookedSlots.add(timeKey);
+      }
+    }
+
     // Get hospital rush level if applicable
     let rushLevel = 'low';
     if (location_type === 'hospital') {
@@ -703,12 +729,18 @@ const getDoctorSlots = async (req, res) => {
         status = 'available';
       }
 
+      // Check if patient can book this slot (not already booked by them and
+      // slot available)
+      const patientAlreadyBooked = patientBookedSlots.has(time);
+      const canBook = !patientAlreadyBooked && available > 0;
+
       return {
         time: time,
         status: status,
         booked: booked,
         max: maxPatients,
-        available: available
+        available: available,
+        can_book: canBook
       };
     });
 
@@ -847,6 +879,28 @@ const bookAppointment = async (req, res) => {
       return res.json({status: 'fail', message: 'slot_fully_booked'});
     }
 
+    // Check if patient already has an appointment at the same time and location
+    const duplicateQuery = {
+      patient_id: patient_id,
+      appointment_time: appointmentDateTime,
+      status: {$ne: 'cancelled'}
+    };
+    // Add location-specific check
+    if (location_type === 'hospital') {
+      duplicateQuery.hospital_id = parseInt(location_id);
+    } else {
+      duplicateQuery.clinic_id = parseInt(location_id);
+    }
+
+    const existingPatientBooking = await Appointment.findOne(duplicateQuery);
+    if (existingPatientBooking) {
+      return res.json({
+        status: 'fail',
+        message: 'patient_already_booked_this_slot',
+        existing_appointment_id: existingPatientBooking.appointment_id
+      });
+    }
+
     // Generate appointment_id
     const appointment_id = await getNextAppointmentId();
 
@@ -859,6 +913,7 @@ const bookAppointment = async (req, res) => {
       patient_id,
       doctor_id,
       hospital_id: location_type === 'hospital' ? parseInt(location_id) : null,
+      clinic_id: location_type === 'clinic' ? parseInt(location_id) : null,
       consultation_place: location_type,
       clinic_name: location_type === 'clinic' ? locationName : null,
       appointment_time: appointmentDateTime,

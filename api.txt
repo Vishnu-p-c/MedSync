@@ -1053,7 +1053,8 @@ GET /doctor/:doctor_id/slots
 --------------------------------------------------------------------------------
 Description: Get available time slots for a specific date (Step 3).
              Generates time slots based on schedule, checks existing bookings,
-             and returns availability status for each slot.
+             and returns availability status for each slot. Also checks if the
+             patient has already booked a slot at this location/time.
 
 URL Parameters:
   - doctor_id: number (required)
@@ -1062,8 +1063,9 @@ Query Parameters:
   - location_type: "hospital" | "clinic" (required)
   - location_id: number (required)
   - date: "YYYY-MM-DD" (required)
+  - patient_id: number (required) - Used to check if patient already booked a slot
 
-Example: GET /doctor/12/slots?location_type=hospital&location_id=5&date=2026-01-23
+Example: GET /doctor/12/slots?location_type=hospital&location_id=5&date=2026-01-23&patient_id=101
 
 Success Response:
 {
@@ -1082,14 +1084,14 @@ Success Response:
     "slot_duration": 30
   },
   "slots": [
-    { "time": "10:00", "status": "available", "booked": 1, "max": 4, "available": 3 },
-    { "time": "10:30", "status": "few_slots", "booked": 3, "max": 4, "available": 1 },
-    { "time": "11:00", "status": "rush_hours", "booked": 4, "max": 4, "available": 0 },
-    { "time": "11:30", "status": "available", "booked": 1, "max": 4, "available": 3 },
-    { "time": "12:00", "status": "available", "booked": 0, "max": 4, "available": 4 },
-    { "time": "12:30", "status": "booked", "booked": 4, "max": 4, "available": 0 },
-    { "time": "13:00", "status": "available", "booked": 2, "max": 4, "available": 2 },
-    { "time": "13:30", "status": "available", "booked": 1, "max": 4, "available": 3 }
+    { "time": "10:00", "status": "available", "booked": 1, "max": 4, "available": 3, "can_book": false },
+    { "time": "10:30", "status": "few_slots", "booked": 3, "max": 4, "available": 1, "can_book": true },
+    { "time": "11:00", "status": "rush_hours", "booked": 4, "max": 4, "available": 0, "can_book": false },
+    { "time": "11:30", "status": "available", "booked": 1, "max": 4, "available": 3, "can_book": true },
+    { "time": "12:00", "status": "available", "booked": 0, "max": 4, "available": 4, "can_book": true },
+    { "time": "12:30", "status": "booked", "booked": 4, "max": 4, "available": 0, "can_book": false },
+    { "time": "13:00", "status": "available", "booked": 2, "max": 4, "available": 2, "can_book": true },
+    { "time": "13:30", "status": "available", "booked": 1, "max": 4, "available": 3, "can_book": true }
   ]
 }
 
@@ -1098,6 +1100,10 @@ Slot Status Legend:
   - "few_slots": 50-75% booked
   - "rush_hours": > 75% booked or hospital rush_level is high
   - "booked": No slots available
+
+can_book Field:
+  - true: Patient can book this slot (has availability AND patient hasn't already booked it)
+  - false: Patient cannot book (either no availability OR patient already has a booking at this time/location)
 
 Success Response (doctor not available on that day):
 {
@@ -1111,7 +1117,7 @@ Success Response (doctor not available on that day):
 
 Failure Responses:
 { "status": "fail", "message": "doctor_id_required" }
-{ "status": "fail", "message": "location_type_location_id_and_date_required" }
+{ "status": "fail", "message": "location_type_location_id_date_and_patient_id_required" }
 { "status": "fail", "message": "invalid_location_type" }
 { "status": "fail", "message": "invalid_date_format" }
 { "status": "fail", "message": "schedule_not_found" }
