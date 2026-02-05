@@ -7,7 +7,7 @@ const AmbulanceLiveLocation = require('../models/AmbulanceLiveLocation');
 const AmbulanceAssignment = require('../models/AmbulanceAssignment');
 const sosController = require('../controllers/sosController');
 const firebaseAdmin = require('../config/firebase');
-// const Hospital = require('../models/Hospital'); // optional for future use
+const Hospital = require('../models/Hospital');
 const https = require('https');
 const {URL} = require('url');
 
@@ -503,6 +503,263 @@ router.post('/severity', async (req, res) => {
     });
   } catch (err) {
     console.error('Error in /sos/severity:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
+// POST /sos/assign-hospital
+// Body: { sos_id: Number, patient_id: Number, driver_id: Number, latitude:
+// Number, longitude: Number, severity: String } Assigns the best hospital based
+// on severity and rush level
+router.post('/assign-hospital', async (req, res) => {
+  try {
+    const {sos_id, patient_id, driver_id, latitude, longitude, severity} =
+        req.body;
+
+    // Validate required fields
+    const missing = [];
+    if (sos_id === undefined || sos_id === null) missing.push('sos_id');
+    if (patient_id === undefined || patient_id === null)
+      missing.push('patient_id');
+    if (driver_id === undefined || driver_id === null)
+      missing.push('driver_id');
+    if (latitude === undefined || latitude === null) missing.push('latitude');
+    if (longitude === undefined || longitude === null)
+      missing.push('longitude');
+    if (severity === undefined || severity === null) missing.push('severity');
+    if (missing.length) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_fields', missing});
+    }
+
+    // Convert and validate numeric fields
+    const sosIdNum = Number(sos_id);
+    const patientIdNum = Number(patient_id);
+    const driverIdNum = Number(driver_id);
+    const lat = Number(latitude);
+    const lon = Number(longitude);
+
+    if (isNaN(sosIdNum) || isNaN(patientIdNum) || isNaN(driverIdNum)) {
+      return res.status(400).json(
+          {status: 'fail', message: 'ids_must_be_numbers'});
+    }
+    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 ||
+        lon > 180) {
+      return res.status(400).json(
+          {status: 'fail', message: 'invalid_coordinates'});
+    }
+
+    // Validate severity
+    const VALID_SEVERITIES = ['critical', 'severe', 'moderate', 'mild'];
+    if (!VALID_SEVERITIES.includes(String(severity))) {
+      return res.status(400).json(
+          {status: 'fail', message: 'invalid_severity'});
+    }
+
+    // Find SOS request
+    const sos = await SosRequest.findOne({sos_id: sosIdNum});
+    if (!sos) {
+      return res.status(404).json({status: 'fail', message: 'sos_not_found'});
+    }
+
+    // Check if SOS is cancelled
+    if (sos.status === 'cancelled') {
+      return res.status(400).json(
+          {status: 'fail', message: 'sos_is_cancelled'});
+    }
+
+    // Check if driver has arrived (arrived_at must not be null)
+    if (!sos.arrived_at) {
+      return res.status(400).json(
+          {status: 'fail', message: 'driver_not_arrived_yet'});
+    }
+
+    // Verify patient ownership
+    if (Number(sos.patient_id) !== patientIdNum) {
+      return res.status(403).json(
+          {status: 'fail', message: 'patient_mismatch'});
+    }
+
+    // Verify assigned driver
+    if (Number(sos.assigned_driver_id) !== driverIdNum) {
+      return res.status(403).json({status: 'fail', message: 'driver_mismatch'});
+    }
+
+    // Check if hospital already assigned
+    if (sos.assigned_hospital_id) {
+      const existingHospital =
+          await Hospital.findOne({hospital_id: sos.assigned_hospital_id})
+              .lean();
+      if (existingHospital) {
+        return res.json({
+          status: 'success',
+          message: 'hospital_already_assigned',
+          hospital_id: existingHospital.hospital_id,
+          hospital_name: existingHospital.name,
+          hospital_address: existingHospital.address || null,
+          hospital_latitude: existingHospital.latitude,
+          hospital_longitude: existingHospital.longitude,
+          rush_level: existingHospital.rush_level
+        });
+      }
+    }
+
+    // Rush level priority (lower is better for selection)
+    const RUSH_PRIORITY = {'low': 1, 'medium': 2, 'high': 3, 'critical': 4};
+
+    // Get all hospitals with coordinates
+    const allHospitals = await Hospital
+                             .find({
+                               latitude: {$exists: true, $ne: null},
+                               longitude: {$exists: true, $ne: null}
+                             })
+                             .lean();
+
+    if (!allHospitals || allHospitals.length === 0) {
+      return res.status(404).json(
+          {status: 'fail', message: 'no_hospitals_available'});
+    }
+
+    // Calculate distance for each hospital from driver's current location
+    let hospitalsWithDistance = allHospitals.map(h => {
+      const distKm = haversineDistanceKm(lat, lon, h.latitude, h.longitude);
+      return {
+        ...h,
+        distance_km: Math.round(distKm * 100) / 100,
+        rush_priority: RUSH_PRIORITY[h.rush_level] || 2
+      };
+    });
+
+    // Sort by distance (nearest first)
+    hospitalsWithDistance.sort((a, b) => a.distance_km - b.distance_km);
+
+    // Initial radius for filtering
+    let radius = 15;  // km
+    let selectedHospital = null;
+
+    // Helper function to select hospital based on criteria
+    const selectHospital = (candidates, severityLevel) => {
+      if (!candidates || candidates.length === 0) return null;
+
+      switch (severityLevel) {
+        case 'critical':
+          // Critical: Just pick the nearest hospital regardless of rush
+          return candidates[0];
+
+        case 'severe':
+          // Severe: From 5 nearest, pick one with rush < critical
+          // But prefer nearer even with higher rush
+          // Sort by: distance first, then by rush (but only consider rush <
+          // critical)
+          const severe5 = candidates.slice(0, 5);
+          // Filter out critical rush hospitals
+          const severeNonCritical =
+              severe5.filter(h => h.rush_level !== 'critical');
+          if (severeNonCritical.length > 0) {
+            // Return the nearest among non-critical rush
+            return severeNonCritical[0];
+          }
+          // If all are critical rush, return nearest anyway
+          return severe5[0];
+
+        case 'moderate':
+          // Moderate: From 10 nearest, pick one with low/medium rush, prefer
+          // nearest
+          const mod10 = candidates.slice(0, 10);
+          // Filter for low or medium rush
+          const modLowMed = mod10.filter(
+              h => h.rush_level === 'low' || h.rush_level === 'medium');
+          if (modLowMed.length > 0) {
+            // Sort by distance first (already sorted), then by rush_priority
+            modLowMed.sort((a, b) => {
+              // Weight distance more than rush: distance difference * 2 vs
+              // rush_priority difference
+              const distDiff = a.distance_km - b.distance_km;
+              const rushDiff = a.rush_priority - b.rush_priority;
+              // If distance difference is small (<1km), prefer lower rush
+              if (Math.abs(distDiff) < 1) {
+                return rushDiff !== 0 ? rushDiff : distDiff;
+              }
+              return distDiff;
+            });
+            return modLowMed[0];
+          }
+          // If none with low/medium, try high rush (avoid critical)
+          const modNonCritical = mod10.filter(h => h.rush_level !== 'critical');
+          if (modNonCritical.length > 0) return modNonCritical[0];
+          // Fallback to nearest
+          return mod10[0];
+
+        case 'mild':
+          // Mild: All within radius, pick lowest rush + nearest
+          // Sort by rush_priority first, then distance
+          const mildSorted = [...candidates].sort((a, b) => {
+            const rushDiff = a.rush_priority - b.rush_priority;
+            if (rushDiff !== 0) return rushDiff;
+            return a.distance_km - b.distance_km;
+          });
+          return mildSorted[0];
+
+        default:
+          return candidates[0];
+      }
+    };
+
+    // Try to find hospitals within radius, expand if needed
+    while (!selectedHospital) {
+      const withinRadius =
+          hospitalsWithDistance.filter(h => h.distance_km <= radius);
+
+      if (withinRadius.length > 0) {
+        selectedHospital = selectHospital(withinRadius, severity);
+      }
+
+      if (!selectedHospital) {
+        // Expand radius by 10km
+        radius += 10;
+        // Safety limit: if radius exceeds 200km, just pick nearest
+        if (radius > 200) {
+          selectedHospital = hospitalsWithDistance[0];
+          break;
+        }
+      }
+    }
+
+    if (!selectedHospital) {
+      return res.status(404).json(
+          {status: 'fail', message: 'no_suitable_hospital_found'});
+    }
+
+    // Calculate estimated time to reach hospital (assuming avg 40 km/h for
+    // ambulance in urban traffic) For critical cases, assume faster speed (60
+    // km/h) due to emergency driving
+    const avgSpeedKmh = severity === 'critical' ? 60 : 40;
+    const estimatedTimeMinutes =
+        Math.ceil((selectedHospital.distance_km / avgSpeedKmh) * 60);
+
+    // Update SOS with assigned hospital and ETA
+    sos.assigned_hospital_id = selectedHospital.hospital_id;
+    sos.severity = severity;  // Update severity as well
+    sos.eta_minutes = estimatedTimeMinutes;
+    await sos.save();
+
+    return res.json({
+      status: 'success',
+      message: 'hospital_assigned',
+      sos_id: sosIdNum,
+      hospital_id: selectedHospital.hospital_id,
+      hospital_name: selectedHospital.name,
+      hospital_address: selectedHospital.address || null,
+      hospital_latitude: selectedHospital.latitude,
+      hospital_longitude: selectedHospital.longitude,
+      distance_km: selectedHospital.distance_km,
+      estimated_time_minutes: estimatedTimeMinutes,
+      rush_level: selectedHospital.rush_level,
+      severity: severity
+    });
+
+  } catch (err) {
+    console.error('Error in /sos/assign-hospital:', err);
     return res.status(500).json({status: 'error', message: 'server_error'});
   }
 });

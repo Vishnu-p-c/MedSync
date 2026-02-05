@@ -508,6 +508,213 @@ Failure Responses:
 
 --------------------------------------------------------------------------------
 
+POST /sos/assign-hospital
+--------------------------------------------------------------------------------
+Description: Assign the best hospital to an SOS request based on severity, 
+             driver's current location, and hospital rush levels.
+             
+             PREREQUISITE: Driver must have arrived (arrived_at must not be null)
+             and SOS must not be cancelled.
+
+             Hospital Selection Algorithm:
+             - Critical: Nearest hospital regardless of rush level
+             - Severe: From 5 nearest hospitals, choose one with rush < critical,
+                       preferring nearer even with higher rush
+             - Moderate: From 10 nearest hospitals, choose one with low/medium 
+                         rush, preferring nearest
+             - Mild: From all hospitals within 15km, choose lowest rush + nearest
+
+             If no hospitals within 15km, radius expands until a hospital is found.
+
+Request Body:
+{
+  "sos_id": number (required),
+  "patient_id": number (required),
+  "driver_id": number (required),
+  "latitude": number (required) - Driver's current latitude,
+  "longitude": number (required) - Driver's current longitude,
+  "severity": "critical | severe | moderate | mild" (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "hospital_assigned",
+  "sos_id": 1706300000000,
+  "hospital_id": 1,
+  "hospital_name": "City General Hospital",
+  "hospital_address": "123 Main Street",
+  "hospital_latitude": 40.7128,
+  "hospital_longitude": -74.0060,
+  "distance_km": 3.45,
+  "estimated_time_minutes": 6,
+  "rush_level": "medium",
+  "severity": "severe"
+}
+
+Note: estimated_time_minutes is calculated based on:
+      - Critical severity: 60 km/h average speed (emergency driving)
+      - Other severities: 40 km/h average speed (urban traffic)
+
+Success Response (already assigned):
+{
+  "status": "success",
+  "message": "hospital_already_assigned",
+  "hospital_id": 1,
+  "hospital_name": "City General Hospital",
+  "hospital_address": "123 Main Street",
+  "hospital_latitude": 40.7128,
+  "hospital_longitude": -74.0060,
+  "rush_level": "medium"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["sos_id", ...] }
+{ "status": "fail", "message": "ids_must_be_numbers" }
+{ "status": "fail", "message": "invalid_coordinates" }
+{ "status": "fail", "message": "invalid_severity" }
+{ "status": "fail", "message": "sos_not_found" } (HTTP 404)
+{ "status": "fail", "message": "sos_is_cancelled" } (HTTP 400)
+{ "status": "fail", "message": "driver_not_arrived_yet" } (HTTP 400)
+{ "status": "fail", "message": "patient_mismatch" } (HTTP 403)
+{ "status": "fail", "message": "driver_mismatch" } (HTTP 403)
+{ "status": "fail", "message": "no_hospitals_available" } (HTTP 404)
+{ "status": "fail", "message": "no_suitable_hospital_found" } (HTTP 404)
+{ "status": "error", "message": "server_error" } (HTTP 500)
+
+................................................................................
+HOSPITAL ASSIGNMENT ALGORITHM - DETAILED EXAMPLES
+................................................................................
+
+Assume the following hospitals exist near the driver's location:
+
+| Hospital Name          | Distance | Rush Level |
+|------------------------|----------|------------|
+| City General Hospital  | 2 km     | critical   |
+| Metro Medical Center   | 3 km     | high       |
+| Green Valley Hospital  | 4 km     | medium     |
+| Sunrise Health Center  | 5 km     | low        |
+| East Side Clinic       | 8 km     | low        |
+| Central Hospital       | 10 km    | medium     |
+| North Wing Medical     | 12 km    | high       |
+| South Care Hospital    | 14 km    | low        |
+| West End Medical       | 18 km    | low        |
+| Far Reach Hospital     | 25 km    | low        |
+
+--- EXAMPLE 1: CRITICAL SEVERITY ---
+Patient has cardiac arrest. Every second counts.
+
+Algorithm: Select NEAREST hospital, ignoring rush level completely.
+Result: City General Hospital (2 km, critical rush)
+Reason: In critical cases, getting to ANY hospital ASAP is priority.
+        Even if the hospital is extremely busy, they MUST attend to 
+        life-threatening emergencies.
+ETA: 2 km ÷ 60 km/h = 2 minutes
+
+--- EXAMPLE 2: SEVERE SEVERITY ---
+Patient has severe bleeding, needs urgent care but stable for now.
+
+Algorithm: From 5 nearest hospitals, pick one with rush < critical.
+           Prefer nearer even with higher rush.
+
+5 Nearest: City General (2km, critical), Metro Medical (3km, high), 
+           Green Valley (4km, medium), Sunrise Health (5km, low), 
+           East Side (8km, low)
+
+Step 1: Filter out "critical" rush → Metro Medical, Green Valley, 
+        Sunrise Health, East Side remain
+Step 2: Pick nearest from filtered list
+
+Result: Metro Medical Center (3 km, high rush)
+Reason: Though Metro has high rush, it's close (3km). We avoided City 
+        General because its rush is "critical" (overwhelmed), but 3km 
+        with high rush is better than 4km with medium rush for severe cases.
+ETA: 3 km ÷ 40 km/h × 60 = 5 minutes
+
+--- EXAMPLE 3: MODERATE SEVERITY ---
+Patient has a broken arm, painful but not life-threatening.
+
+Algorithm: From 10 nearest hospitals, pick one with low/medium rush,
+           preferring nearest. If two hospitals have similar distance 
+           (<1km difference), prefer lower rush.
+
+10 Nearest: City General (2km), Metro Medical (3km), Green Valley (4km),
+            Sunrise Health (5km), East Side (8km), Central (10km), 
+            North Wing (12km), South Care (14km)
+
+Step 1: Filter for low/medium rush only
+        → Green Valley (4km, medium), Sunrise Health (5km, low), 
+          East Side (8km, low), Central (10km, medium), South Care (14km, low)
+
+Step 2: Sort by distance, but prefer lower rush if distance < 1km apart
+        - Green Valley (4km, medium) vs Sunrise Health (5km, low)
+        - Distance difference = 1km (not < 1km), so distance wins
+
+Result: Green Valley Hospital (4 km, medium rush)
+Reason: It's the nearest hospital with acceptable rush level (not high/critical).
+        Though Sunrise has lower rush, the 1km extra distance matters.
+ETA: 4 km ÷ 40 km/h × 60 = 6 minutes
+
+--- EXAMPLE 4: MODERATE SEVERITY (close hospitals) ---
+Same scenario, but imagine Green Valley is 4.5km and Sunrise is 5km.
+
+Step 2: Distance difference = 0.5km (< 1km), so rush level matters
+        - Green Valley (4.5km, medium, priority=2)
+        - Sunrise Health (5km, low, priority=1)
+
+Result: Sunrise Health Center (5 km, low rush)
+Reason: When hospitals are similarly distant, we prefer lower rush 
+        to reduce patient wait time at the hospital.
+ETA: 5 km ÷ 40 km/h × 60 = 8 minutes
+
+--- EXAMPLE 5: MILD SEVERITY ---
+Patient has minor fever, routine checkup needed.
+
+Algorithm: From ALL hospitals within 15km, pick the one with 
+           LOWEST rush first, then nearest.
+
+Within 15km: City General (2km, critical), Metro Medical (3km, high),
+             Green Valley (4km, medium), Sunrise Health (5km, low),
+             East Side (8km, low), Central (10km, medium), 
+             North Wing (12km, high), South Care (14km, low)
+
+Step 1: Sort by rush priority (low=1, medium=2, high=3, critical=4)
+        Low rush: Sunrise Health (5km), East Side (8km), South Care (14km)
+        
+Step 2: Among same rush level, pick nearest
+
+Result: Sunrise Health Center (5 km, low rush)
+Reason: For mild cases, patient comfort matters. A hospital with low 
+        rush means shorter wait times, even if slightly farther.
+ETA: 5 km ÷ 40 km/h × 60 = 8 minutes
+
+--- EXAMPLE 6: NO HOSPITALS WITHIN 15KM ---
+Driver is in a remote area. Only Far Reach Hospital exists at 25km.
+
+Algorithm: Expand radius by 10km until hospitals found.
+           - 15km: no hospitals
+           - 25km: Far Reach Hospital found
+           Apply severity-based selection on available options.
+
+Result: Far Reach Hospital (25 km, low rush)
+Reason: Only option available after radius expansion.
+ETA (critical): 25 km ÷ 60 km/h × 60 = 25 minutes
+ETA (others): 25 km ÷ 40 km/h × 60 = 38 minutes
+
+--- EXAMPLE 7: ALL HOSPITALS HAVE CRITICAL RUSH (edge case) ---
+Disaster scenario: All nearby hospitals overwhelmed.
+
+For SEVERE case:
+- Filter out critical rush → none remain
+- Fallback: pick nearest from original 5
+
+Result: City General Hospital (2 km, critical rush)
+Reason: When all options are bad, distance becomes the only factor.
+
+................................................................................
+
+--------------------------------------------------------------------------------
+
 POST /sos/severity
 --------------------------------------------------------------------------------
 Description: Update severity level of an SOS (by assigned driver).
