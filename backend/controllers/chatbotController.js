@@ -21,9 +21,8 @@ const forwardToChatbot = async (req, res) => {
       return res.status(403).json({status: 'fail', message: 'user_not_found'});
     }
 
-    // Step 3: Get n8n webhook URL and secret from environment
+    // Step 3: Get n8n webhook URL from environment
     const n8nWebhookUrl = process.env.N8N_CHATBOT_WEBHOOK_URL;
-    const n8nSecret = process.env.N8N_SECRET;
 
     if (!n8nWebhookUrl) {
       console.error('N8N_CHATBOT_WEBHOOK_URL not configured');
@@ -31,14 +30,11 @@ const forwardToChatbot = async (req, res) => {
           {status: 'error', message: 'chatbot_service_not_configured'});
     }
 
-    // Step 4: Forward request to n8n with secret header
+    // Step 4: Forward request to n8n
     try {
       const n8nResponse = await axios.post(
           n8nWebhookUrl, {user_id: user_id, message: message}, {
-            headers: {
-              'Content-Type': 'application/json',
-              'x-internal-secret': n8nSecret || ''
-            },
+            headers: {'Content-Type': 'application/json'},
             timeout: 30000  // 30 second timeout
           });
 
