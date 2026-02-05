@@ -582,8 +582,9 @@ Example Request:
 Success Response:
 {
   "status": "success",
-  "reply": "Diabetes symptoms include increased thirst, frequent urination...",
-  "disclaimer": "This information is for educational purposes only. Please consult a doctor."
+  "reply": "Paracetamol is generally well-tolerated at recommended doses...",
+  "category": "medications",
+  "confidence": "high"
 }
 
 Failure Responses:

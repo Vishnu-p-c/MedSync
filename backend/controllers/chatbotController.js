@@ -42,7 +42,8 @@ const forwardToChatbot = async (req, res) => {
       return res.json({
         status: 'success',
         reply: n8nResponse.data.reply || '',
-        disclaimer: n8nResponse.data.disclaimer || ''
+        category: n8nResponse.data.category || '',
+        confidence: n8nResponse.data.confidence || ''
       });
 
     } catch (n8nError) {
