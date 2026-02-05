@@ -597,7 +597,6 @@ Failure Responses:
 Security Notes:
 - User must exist in the database before message is forwarded to n8n
 - n8n webhook URL is read from environment variable: N8N_CHATBOT_WEBHOOK_URL
-- Secret header (x-internal-secret) is sent to n8n for authentication
 - 30-second timeout for n8n responses
 
 ================================================================================
