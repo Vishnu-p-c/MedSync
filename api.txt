@@ -559,7 +559,49 @@ Failure Responses:
 { "status": "fail", "message": "not_request_owner" }
 
 ================================================================================
-7. ROOT ENDPOINT
+7. CHATBOT
+================================================================================
+
+POST /app/chatbot
+--------------------------------------------------------------------------------
+Description: Forward user message to n8n chatbot (secure endpoint with user validation).
+             Only forwards messages if user exists in the system.
+
+Request Body:
+{
+  "user_id": number (required),
+  "message": "string" (required)
+}
+
+Example Request:
+{
+  "user_id": 16,
+  "message": "What are the symptoms of diabetes?"
+}
+
+Success Response:
+{
+  "status": "success",
+  "reply": "Diabetes symptoms include increased thirst, frequent urination...",
+  "disclaimer": "This information is for educational purposes only. Please consult a doctor."
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["user_id"] }
+{ "status": "fail", "message": "user_not_found" } (HTTP 403)
+{ "status": "error", "message": "chatbot_service_not_configured" } (HTTP 500)
+{ "status": "error", "message": "chatbot_service_error", "details": {...} } (HTTP 502)
+{ "status": "error", "message": "chatbot_service_timeout" } (HTTP 504)
+{ "status": "error", "message": "chatbot_request_failed" } (HTTP 500)
+
+Security Notes:
+- User must exist in the database before message is forwarded to n8n
+- n8n webhook URL is read from environment variable: N8N_CHATBOT_WEBHOOK_URL
+- Secret header (x-internal-secret) is sent to n8n for authentication
+- 30-second timeout for n8n responses
+
+================================================================================
+8. ROOT ENDPOINT
 ================================================================================
 
 GET /
@@ -570,7 +612,7 @@ Response:
 "MedSync Backend Running"
 
 ================================================================================
-8. DOCTOR OPERATIONS
+9. DOCTOR OPERATIONS
 ================================================================================
 
 POST /doctor/appointment
@@ -784,7 +826,7 @@ Note: Distance is calculated using the Haversine formula. The nearest_location
       shows the closest hospital OR clinic where the doctor consults.
 
 ================================================================================
-9. HOSPITAL & CLINIC MANAGEMENT
+10. HOSPITAL & CLINIC MANAGEMENT
 ================================================================================
 
 POST /hospital/register
@@ -975,7 +1017,7 @@ Failure Responses:
 { "status": "fail", "message": "admin_not_found" }
 
 ================================================================================
-10. APPOINTMENT BOOKING FLOW
+11. APPOINTMENT BOOKING FLOW
 ================================================================================
 
 These APIs support the step-by-step booking flow in the mobile app.
@@ -1219,7 +1261,7 @@ Failure Responses:
 { "status": "fail", "message": "admin_not_authorized_for_hospital" }
 
 ================================================================================
-11. SOS DASHBOARD APIS (Admin)
+12. SOS DASHBOARD APIS (Admin)
 ================================================================================
 
 GET /sos/summary
@@ -1308,7 +1350,7 @@ Success Response:
 }
 
 ================================================================================
-12. ADMIN DASHBOARD APIS
+13. ADMIN DASHBOARD APIS
 ================================================================================
 
 GET /admin/hospital-info
@@ -1533,7 +1575,7 @@ Failure Responses:
 { "status": "fail", "message": "invalid_date_of_birth" }
 
 ================================================================================
-13. ADMIN AMBULANCE MANAGEMENT
+14. ADMIN AMBULANCE MANAGEMENT
 ================================================================================
 
 GET /admin/ambulance/drivers
@@ -1634,7 +1676,7 @@ Failure Responses:
 { "status": "fail", "message": "Driver not found" }
 
 ================================================================================
-14. ALERTS MANAGEMENT
+15. ALERTS MANAGEMENT
 ================================================================================
 
 GET /alerts
@@ -1731,7 +1773,7 @@ Success Response:
 }
 
 ================================================================================
-15. SETTINGS
+16. SETTINGS
 ================================================================================
 
 GET /settings/profile
@@ -1892,7 +1934,7 @@ Failure Responses:
 { "status": "error", "message": "Hospital not found" }
 
 ================================================================================
-16. RUSH LEVEL MANAGEMENT
+17. RUSH LEVEL MANAGEMENT
 ================================================================================
 
 GET /rush/level
@@ -1976,7 +2018,7 @@ Failure Responses:
 { "status": "fail", "message": "Admin not found" }
 
 ================================================================================
-17. ADDITIONAL DRIVER ENDPOINT
+18. ADDITIONAL DRIVER ENDPOINT
 ================================================================================
 
 GET /driver/active-count
