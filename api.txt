@@ -2317,6 +2317,119 @@ Note: This endpoint counts ambulance drivers who have toggled their duty status
       to "on" via POST /driver/duty. The count updates in real-time.
 
 ================================================================================
+19. HOSPITAL SOS TRACKING (NEW)
+================================================================================
+
+POST /sos/hospital-incoming
+--------------------------------------------------------------------------------
+Description: Get active/incoming SOS requests assigned to a hospital admin's 
+             hospital(s). Returns enriched data with patient details, driver 
+             details, live driver location, and hospital info. Designed for 
+             hospital admin dashboard polling.
+
+Request Body:
+{
+  "admin_id": number (required) - The hospital admin's user ID
+}
+
+Success Response:
+{
+  "status": "success",
+  "count": 2,
+  "sos_requests": [
+    {
+      "sos_id": 45,
+      "patient_id": 12,
+      "patient_name": "John Smith",
+      "patient_phone": "9876543210",
+      "patient_latitude": 9.9312,
+      "patient_longitude": 76.2673,
+      "severity": "critical | severe | moderate | mild | unknown",
+      "status": "assigned | driver_arrived | awaiting_driver_response",
+      "assigned_driver_id": 5,
+      "driver_name": "Mike Johnson",
+      "vehicle_number": "KL-07-AB-1234",
+      "driver_latitude": 9.9400,
+      "driver_longitude": 76.2700,
+      "driver_location_updated_at": "2026-02-06T10:30:00.000Z",
+      "assigned_hospital_id": 3,
+      "hospital_name": "City General Hospital",
+      "hospital_latitude": 9.9500,
+      "hospital_longitude": 76.2800,
+      "hospital_address": "MG Road, Kochi",
+      "eta_minutes": 12,
+      "created_at": "2026-02-06T10:15:00.000Z",
+      "arrived_at": null
+    }
+  ]
+}
+
+Empty Response (no active SOS):
+{
+  "status": "success",
+  "count": 0,
+  "sos_requests": []
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_field: admin_id" }
+{ "status": "fail", "message": "admin_id_must_be_number" }
+{ "status": "fail", "message": "admin_not_found" }
+
+Notes:
+  - Only returns SOS with status: assigned, driver_arrived, awaiting_driver_response
+  - Completed and cancelled SOS are excluded
+  - Driver location is fetched from AmbulanceLiveLocation (real-time)
+  - Recommended polling interval: 5 seconds for live tracking
+  - If admin manages multiple hospitals, returns SOS from all of them
+
+================================================================================
+20. DOCTOR LOGIN / ATTENDANCE (NEW)
+================================================================================
+
+POST /hospital/attendence-mark
+--------------------------------------------------------------------------------
+Description: Marks a doctor's attendance at a hospital (used as part of doctor
+             login/verification). Doctor must be assigned to the given hospital.
+             Either NFC serial (`nfc_sno`) or hospital security password (`spass`)
+             must be provided.
+
+Request Body:
+{
+  "user_id": number (required) - The doctor user_id,
+  "hospital_id": number (required),
+  "nfc_sno": "string" (optional),
+  "spass": "string" (optional)
+}
+
+Notes:
+  - Either `nfc_sno` OR `spass` is required.
+  - If `nfc_sno` is provided, it is compared with the hospital record's NFC_SNO.
+  - If `nfc_sno` is not provided, `spass` is compared with the hospital record's
+    stored hashed password (bcrypt compare).
+
+Success Response:
+{
+  "status": "success",
+  "message": "attendance_marked",
+  "doctor_id": 123,
+  "hospital_id": 7,
+  "marked_at": "2026-02-06T10:30:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["..."] }
+{ "status": "fail", "message": "ids_must_be_numbers" }
+{ "status": "fail", "message": "user_not_found" }
+{ "status": "fail", "message": "user_not_doctor" }
+{ "status": "fail", "message": "doctor_record_not_found" }
+{ "status": "fail", "message": "doctor_not_assigned_to_hospital" }
+{ "status": "fail", "message": "hospital_not_found" }
+{ "status": "fail", "message": "invalid_nfc_sno" }
+{ "status": "fail", "message": "hospital_spass_not_set" }
+{ "status": "fail", "message": "invalid_spass" }
+
+================================================================================
                               END OF API REFERENCE
 ================================================================================
 

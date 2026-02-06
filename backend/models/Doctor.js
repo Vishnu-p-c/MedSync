@@ -1,5 +1,12 @@
 const mongoose = require('mongoose');
 
+const hospitalAttendanceSchema = new mongoose.Schema(
+    {
+      last_marked_at: {type: Date, default: null},
+      is_available: {type: Boolean, default: false}
+    },
+    {_id: false});
+
 const doctorDetailsSchema = new mongoose.Schema({
   doctor_id: {type: Number, required: true, unique: true, ref: 'User'},
   // Doctor can consult in multiple hospitals; store as an array of hospital IDs
@@ -17,6 +24,10 @@ const doctorDetailsSchema = new mongoose.Schema({
   is_available: {type: Boolean, default: false},
   // Keep null by default until first attendance is logged
   last_attendance_time: {type: Date, default: null},
+  // Per-hospital attendance/availability. Keys are hospital_id (as string).
+  hospital_attendance: {type: Map, of: hospitalAttendanceSchema, default: {}},
+  // Which hospital the doctor is currently marked available at (if any)
+  current_hospital_id: {type: Number, ref: 'Hospital', default: null},
   // Required by registration flow (whether doctor consults in multiple places)
   multi_place: {type: Boolean, required: true, default: false},
   // Qualifications of the doctor (e.g., MBBS, MD, MS)

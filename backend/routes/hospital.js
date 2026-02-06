@@ -5,6 +5,18 @@ const Clinic = require('../models/Clinic');
 const HospitalAdmin = require('../models/HospitalAdmin');
 const EquipmentStatus = require('../models/Equipment');
 const bcrypt = require('bcryptjs');
+const DoctorDetails = require('../models/Doctor');
+
+const randomMorningTimeToday = () => {
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(6, 0, 0, 0);
+  const end = new Date(now);
+  end.setHours(11, 0, 0, 0);
+  const t = start.getTime() +
+      Math.floor(Math.random() * (end.getTime() - start.getTime()));
+  return new Date(t);
+};
 
 // POST /hospital/register
 // Body: { name, address, latitude, longitude, rush_level }
@@ -418,6 +430,152 @@ router.get('/clinic/list', async (req, res) => {
     });
   } catch (err) {
     console.error('Error in /hospital/clinic/list:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
+// POST /hospital/attendence-mark
+// Body: { user_id: Number, hospital_id: Number, nfc_sno?: String, spass?:
+// String } Either nfc_sno or spass is required.
+router.post('/attendence-mark', async (req, res) => {
+  try {
+    const {user_id, hospital_id} = req.body;
+    // accept both key styles just in case
+    const nfc_sno = req.body.nfc_sno ?? req.body.NFC_SNO ?? null;
+    const spass = req.body.spass ?? null;
+
+    const missing = [];
+    if (user_id === undefined || user_id === null) missing.push('user_id');
+    if (hospital_id === undefined || hospital_id === null)
+      missing.push('hospital_id');
+
+    const nfcProvided = nfc_sno !== null && nfc_sno !== undefined &&
+        String(nfc_sno).trim() !== '';
+    const spassProvided =
+        spass !== null && spass !== undefined && String(spass).trim() !== '';
+    if (!nfcProvided && !spassProvided) missing.push('nfc_sno_or_spass');
+
+    if (missing.length) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_fields', missing});
+    }
+
+    const userIdNum = Number(user_id);
+    const hospitalIdNum = Number(hospital_id);
+    if (isNaN(userIdNum) || isNaN(hospitalIdNum)) {
+      return res.status(400).json(
+          {status: 'fail', message: 'ids_must_be_numbers'});
+    }
+
+    const user = await User.findOne({user_id: userIdNum}).lean();
+    if (!user) {
+      return res.status(404).json({status: 'fail', message: 'user_not_found'});
+    }
+
+    if (user.role !== 'doctor') {
+      return res.status(403).json({status: 'fail', message: 'user_not_doctor'});
+    }
+
+    const doctor = await DoctorDetails.findOne({doctor_id: userIdNum});
+    if (!doctor) {
+      return res.status(404).json(
+          {status: 'fail', message: 'doctor_record_not_found'});
+    }
+
+    const consultHospitals =
+        Array.isArray(doctor.hospital_id) ? doctor.hospital_id : [];
+    if (!consultHospitals.includes(hospitalIdNum)) {
+      return res.status(403).json(
+          {status: 'fail', message: 'doctor_not_assigned_to_hospital'});
+    }
+
+    const hospital =
+        await Hospital.findOne({hospital_id: hospitalIdNum}).lean();
+    if (!hospital) {
+      return res.status(404).json(
+          {status: 'fail', message: 'hospital_not_found'});
+    }
+
+    // Auth check
+    if (nfcProvided) {
+      const reqNfc = String(nfc_sno).trim();
+      const hospitalNfc =
+          hospital.NFC_SNO !== undefined && hospital.NFC_SNO !== null ?
+          String(hospital.NFC_SNO).trim() :
+          '';
+      if (!hospitalNfc || hospitalNfc !== reqNfc) {
+        return res.status(403).json(
+            {status: 'fail', message: 'invalid_nfc_sno'});
+      }
+    } else {
+      const reqSpass = String(spass).trim();
+      const stored = hospital.spass;
+      if (!stored) {
+        return res.status(403).json(
+            {status: 'fail', message: 'hospital_spass_not_set'});
+      }
+
+      let ok = false;
+      // If hashed (bcrypt), compare; else fall back to plain string compare
+      if (typeof stored === 'string' && stored.startsWith('$2')) {
+        ok = await bcrypt.compare(reqSpass, stored);
+      } else {
+        ok = String(stored) === reqSpass;
+      }
+
+      if (!ok) {
+        return res.status(403).json({status: 'fail', message: 'invalid_spass'});
+      }
+    }
+
+    // Attendance mark + mapping update
+    const now = new Date();
+
+    // Normalize existing map
+    const existingMap = doctor.hospital_attendance;
+    const attendanceObj = {};
+    for (const hid of consultHospitals) {
+      const key = String(hid);
+      const existing =
+          existingMap?.get ? existingMap.get(key) : existingMap?.[key];
+      attendanceObj[key] = {
+        last_marked_at: existing?.last_marked_at || randomMorningTimeToday(),
+        is_available: false
+      };
+    }
+
+    // Ensure only one active hospital at a time, and mark this hospital active
+    const selectedKey = String(hospitalIdNum);
+    if (!attendanceObj[selectedKey]) {
+      attendanceObj[selectedKey] = {
+        last_marked_at: randomMorningTimeToday(),
+        is_available: false
+      };
+    }
+    attendanceObj[selectedKey].last_marked_at = now;
+    attendanceObj[selectedKey].is_available = true;
+
+    doctor.hospital_attendance = attendanceObj;
+    doctor.current_hospital_id = hospitalIdNum;
+    doctor.is_available = true;
+    doctor.last_attendance_time = now;
+    if (!doctor.name || String(doctor.name).trim() === '') {
+      doctor.name =
+          `${doctor.first_name || ''} ${doctor.last_name || ''}`.trim();
+    }
+
+    await doctor.save();
+
+    return res.json({
+      status: 'success',
+      message: 'attendance_marked',
+      doctor_id: doctor.doctor_id,
+      hospital_id: hospitalIdNum,
+      marked_at: now
+    });
+
+  } catch (err) {
+    console.error('Error in /hospital/attendence-mark:', err);
     return res.status(500).json({status: 'error', message: 'server_error'});
   }
 });

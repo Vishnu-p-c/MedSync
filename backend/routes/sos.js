@@ -6,6 +6,7 @@ const AmbulanceDriver = require('../models/AmbulanceDriver');
 const AmbulanceLiveLocation = require('../models/AmbulanceLiveLocation');
 const AmbulanceAssignment = require('../models/AmbulanceAssignment');
 const User = require('../models/User');
+const HospitalAdmin = require('../models/HospitalAdmin');
 const sosController = require('../controllers/sosController');
 const firebaseAdmin = require('../config/firebase');
 const Hospital = require('../models/Hospital');
@@ -1256,6 +1257,151 @@ router.post('/cancel', async (req, res) => {
     return res.json({status: 'fail', message: 'cannot_cancel_now'});
   } catch (err) {
     console.error('Error cancelling SOS request:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
+// POST /sos/hospital-incoming
+// Body: { admin_id: Number }
+// For hospital admin dashboard to poll incoming/active SOS assigned to their
+// hospital
+router.post('/hospital-incoming', async (req, res) => {
+  try {
+    const {admin_id} = req.body;
+
+    // Validate admin_id
+    if (admin_id === undefined || admin_id === null) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_field: admin_id'});
+    }
+
+    const adminIdNum = Number(admin_id);
+    if (isNaN(adminIdNum)) {
+      return res.status(400).json(
+          {status: 'fail', message: 'admin_id_must_be_number'});
+    }
+
+    // Find hospital(s) this admin belongs to
+    const adminLinks = await HospitalAdmin.find({admin_id: adminIdNum}).lean();
+    if (!adminLinks || adminLinks.length === 0) {
+      return res.status(404).json({status: 'fail', message: 'admin_not_found'});
+    }
+
+    // Get hospital IDs (only hospital type, not clinic)
+    const hospitalIds = adminLinks
+                            .filter(
+                                link => link.admin_type === 'hospital' ||
+                                    (!link.admin_type && link.hospital_id))
+                            .map(link => link.hospital_id)
+                            .filter(id => id !== null);
+
+    if (hospitalIds.length === 0) {
+      return res.json({status: 'success', sos_requests: [], count: 0});
+    }
+
+    // Find active SOS requests assigned to any of these hospitals
+    // Active statuses: assigned, driver_arrived (excluding completed,
+    // cancelled)
+    const activeSosRequests =
+        await SosRequest
+            .find({
+              assigned_hospital_id: {$in: hospitalIds},
+              status: {
+                $in: ['assigned', 'driver_arrived', 'awaiting_driver_response']
+              }
+            })
+            .lean();
+
+    if (!activeSosRequests || activeSosRequests.length === 0) {
+      return res.json({status: 'success', sos_requests: [], count: 0});
+    }
+
+    // Enrich each SOS with patient info, driver info, and live location
+    const enrichedSos = [];
+    for (const sos of activeSosRequests) {
+      const enriched = {
+        sos_id: sos.sos_id,
+        patient_id: sos.patient_id,
+        patient_latitude: sos.latitude,
+        patient_longitude: sos.longitude,
+        severity: sos.severity || 'unknown',
+        status: sos.status,
+        assigned_driver_id: sos.assigned_driver_id || null,
+        assigned_hospital_id: sos.assigned_hospital_id,
+        eta_minutes: sos.eta_minutes || null,
+        created_at: sos.created_at || null,
+        arrived_at: sos.arrived_at || null
+      };
+
+      // Get patient details
+      if (sos.patient_id) {
+        try {
+          const patient = await User.findOne({user_id: sos.patient_id}).lean();
+          if (patient) {
+            enriched.patient_name =
+                `${patient.first_name} ${patient.last_name || ''}`.trim();
+            enriched.patient_phone = patient.phone || null;
+          }
+        } catch (e) {
+          console.error('Error fetching patient details:', e);
+        }
+      }
+
+      // Get driver details and live location
+      if (sos.assigned_driver_id) {
+        try {
+          const driver =
+              await AmbulanceDriver.findOne({driver_id: sos.assigned_driver_id})
+                  .lean();
+          if (driver) {
+            enriched.driver_name =
+                `${driver.first_name || ''} ${driver.last_name || ''}`.trim();
+            enriched.driver_phone = null;  // Add if available in model
+            enriched.vehicle_number = driver.vehicle_number || null;
+          }
+
+          // Get driver live location
+          const liveLocation = await AmbulanceLiveLocation
+                                   .findOne({driver_id: sos.assigned_driver_id})
+                                   .lean();
+          if (liveLocation) {
+            enriched.driver_latitude = liveLocation.latitude;
+            enriched.driver_longitude = liveLocation.longitude;
+            enriched.driver_location_updated_at = liveLocation.updated_at;
+          }
+        } catch (e) {
+          console.error('Error fetching driver details:', e);
+        }
+      }
+
+      // Get hospital details
+      if (sos.assigned_hospital_id) {
+        try {
+          const hospital =
+              await Hospital.findOne({hospital_id: sos.assigned_hospital_id})
+                  .lean();
+          if (hospital) {
+            enriched.hospital_name = hospital.name;
+            enriched.hospital_latitude = hospital.latitude;
+            enriched.hospital_longitude = hospital.longitude;
+            enriched.hospital_address = hospital.address || null;
+          }
+        } catch (e) {
+          console.error('Error fetching hospital details:', e);
+        }
+      }
+
+      enrichedSos.push(enriched);
+    }
+
+    return res.json({
+      status: 'success',
+      sos_requests: enrichedSos,
+      count: enrichedSos.length
+    });
+
+  } catch (err) {
+    console.error('Error in /sos/hospital-incoming:', err);
     return res.status(500).json({status: 'error', message: 'server_error'});
   }
 });
