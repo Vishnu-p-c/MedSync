@@ -70,6 +70,8 @@ const hospitalSchema = new mongoose.Schema({
       }
     ]
   },
+  NFC_SNO: {type: String, default: null},
+  spass: {type: String, default: null},
   updated_at: {type: Date, default: Date.now}
 });
 
