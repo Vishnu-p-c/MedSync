@@ -764,6 +764,95 @@ router.post('/assign-hospital', async (req, res) => {
   }
 });
 
+// POST /sos/check-hospital-assignment
+// Body: { sos_id: Number, patient_id: Number }
+// For patient app to poll and check if a hospital has been assigned
+router.post('/check-hospital-assignment', async (req, res) => {
+  try {
+    const {sos_id, patient_id} = req.body;
+
+    // Validate required fields
+    const missing = [];
+    if (sos_id === undefined || sos_id === null) missing.push('sos_id');
+    if (patient_id === undefined || patient_id === null)
+      missing.push('patient_id');
+    if (missing.length) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_fields', missing});
+    }
+
+    const sosIdNum = Number(sos_id);
+    const patientIdNum = Number(patient_id);
+
+    if (isNaN(sosIdNum) || isNaN(patientIdNum)) {
+      return res.status(400).json(
+          {status: 'fail', message: 'ids_must_be_numbers'});
+    }
+
+    // Find SOS request
+    const sos = await SosRequest.findOne({sos_id: sosIdNum}).lean();
+    if (!sos) {
+      return res.status(404).json({status: 'fail', message: 'sos_not_found'});
+    }
+
+    // Verify patient ownership
+    if (Number(sos.patient_id) !== patientIdNum) {
+      return res.status(403).json(
+          {status: 'fail', message: 'not_request_owner'});
+    }
+
+    // Check SOS status
+    if (sos.status === 'cancelled') {
+      return res.json({status: 'cancelled', message: 'sos_was_cancelled'});
+    }
+
+    // Check if hospital is assigned
+    if (!sos.assigned_hospital_id) {
+      return res.json({
+        status: 'not_assigned',
+        sos_status: sos.status,
+        severity: sos.severity || 'unknown'
+      });
+    }
+
+    // Hospital is assigned - fetch hospital details
+    const hospital =
+        await Hospital.findOne({hospital_id: sos.assigned_hospital_id}).lean();
+
+    if (!hospital) {
+      return res.json({
+        status: 'assigned',
+        hospital_id: sos.assigned_hospital_id,
+        hospital_name: null,
+        hospital_address: null,
+        hospital_latitude: null,
+        hospital_longitude: null,
+        rush_level: null,
+        eta_minutes: sos.eta_minutes || null,
+        severity: sos.severity || 'unknown',
+        sos_status: sos.status
+      });
+    }
+
+    return res.json({
+      status: 'assigned',
+      hospital_id: hospital.hospital_id,
+      hospital_name: hospital.name,
+      hospital_address: hospital.address || null,
+      hospital_latitude: hospital.latitude,
+      hospital_longitude: hospital.longitude,
+      rush_level: hospital.rush_level,
+      eta_minutes: sos.eta_minutes || null,
+      severity: sos.severity || 'unknown',
+      sos_status: sos.status
+    });
+
+  } catch (err) {
+    console.error('Error in /sos/check-hospital-assignment:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
 // --- Assignment helper -------------------------------------------------
 // Find nearest active driver with a live location and atomically assign
 async function assignNearestDriver(sos) {

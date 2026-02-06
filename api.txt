@@ -715,6 +715,53 @@ Reason: When all options are bad, distance becomes the only factor.
 
 --------------------------------------------------------------------------------
 
+POST /sos/check-hospital-assignment
+--------------------------------------------------------------------------------
+Description: Check if a hospital has been assigned to an SOS request.
+             For patient app to poll after driver arrives.
+
+Request Body:
+{
+  "sos_id": number (required),
+  "patient_id": number (required)
+}
+
+Success Response (hospital assigned):
+{
+  "status": "assigned",
+  "hospital_id": 1,
+  "hospital_name": "City General Hospital",
+  "hospital_address": "123 Main Street",
+  "hospital_latitude": 40.7128,
+  "hospital_longitude": -74.0060,
+  "rush_level": "medium",
+  "eta_minutes": 6,
+  "severity": "severe",
+  "sos_status": "driver_arrived"
+}
+
+Success Response (not yet assigned):
+{
+  "status": "not_assigned",
+  "sos_status": "driver_arrived",
+  "severity": "unknown"
+}
+
+Success Response (SOS cancelled):
+{
+  "status": "cancelled",
+  "message": "sos_was_cancelled"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["sos_id"] }
+{ "status": "fail", "message": "ids_must_be_numbers" }
+{ "status": "fail", "message": "sos_not_found" } (HTTP 404)
+{ "status": "fail", "message": "not_request_owner" } (HTTP 403)
+{ "status": "error", "message": "server_error" } (HTTP 500)
+
+--------------------------------------------------------------------------------
+
 POST /sos/severity
 --------------------------------------------------------------------------------
 Description: Update severity level of an SOS (by assigned driver).
