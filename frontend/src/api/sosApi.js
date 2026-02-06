@@ -8,25 +8,24 @@ import axiosInstance from '../utils/axiosInstance';
 /**
  * Get SOS requests summary (counts by status)
  * @param {string|number} adminId - The admin's user ID
- * @returns {Promise<Object>} - { total, pending, inProgress, assigned, completed, cancelled }
+ * @returns {Promise<Object>} - { total, pending, inProgress, assigned,
+ *     completed, cancelled }
  */
 export const getSosSummary = async (adminId) => {
-    try {
-        const response = await axiosInstance.get(`/sos/summary?admin_id=${adminId}`);
-        if (response.data.status === 'success') {
-            return {
-                success: true,
-                data: response.data.data
-            };
-        }
-        return { success: false, error: response.data.message };
-    } catch (error) {
-        console.error('Error fetching SOS summary:', error);
-        return {
-            success: false,
-            error: error.response?.data?.message || 'Network error'
-        };
+  try {
+    const response =
+        await axiosInstance.get(`/sos/summary?admin_id=${adminId}`);
+    if (response.data.status === 'success') {
+      return {success: true, data: response.data.data};
     }
+    return {success: false, error: response.data.message};
+  } catch (error) {
+    console.error('Error fetching SOS summary:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Network error'
+    };
+  }
 };
 
 /**
@@ -36,23 +35,24 @@ export const getSosSummary = async (adminId) => {
  * @returns {Promise<Object>} - Array of recent SOS requests
  */
 export const getRecentSosRequests = async (adminId, limit = 10) => {
-    try {
-        const response = await axiosInstance.get(`/sos/recent?admin_id=${adminId}&limit=${limit}`);
-        if (response.data.status === 'success') {
-            return {
-                success: true,
-                data: response.data.data,
-                count: response.data.count
-            };
-        }
-        return { success: false, error: response.data.message };
-    } catch (error) {
-        console.error('Error fetching recent SOS requests:', error);
-        return {
-            success: false,
-            error: error.response?.data?.message || 'Network error'
-        };
+  try {
+    const response = await axiosInstance.get(
+        `/sos/recent?admin_id=${adminId}&limit=${limit}`);
+    if (response.data.status === 'success') {
+      return {
+        success: true,
+        data: response.data.data,
+        count: response.data.count
+      };
     }
+    return {success: false, error: response.data.message};
+  } catch (error) {
+    console.error('Error fetching recent SOS requests:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Network error'
+    };
+  }
 };
 
 /**
@@ -61,22 +61,20 @@ export const getRecentSosRequests = async (adminId, limit = 10) => {
  * @returns {Promise<Object>} - { critical, severe, moderate, mild, unknown }
  */
 export const getSosBySeverity = async (adminId) => {
-    try {
-        const response = await axiosInstance.get(`/sos/severity?admin_id=${adminId}`);
-        if (response.data.status === 'success') {
-            return {
-                success: true,
-                data: response.data.data
-            };
-        }
-        return { success: false, error: response.data.message };
-    } catch (error) {
-        console.error('Error fetching SOS by severity:', error);
-        return {
-            success: false,
-            error: error.response?.data?.message || 'Network error'
-        };
+  try {
+    const response =
+        await axiosInstance.get(`/sos/severity?admin_id=${adminId}`);
+    if (response.data.status === 'success') {
+      return {success: true, data: response.data.data};
     }
+    return {success: false, error: response.data.message};
+  } catch (error) {
+    console.error('Error fetching SOS by severity:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Network error'
+    };
+  }
 };
 
 /**
@@ -85,20 +83,44 @@ export const getSosBySeverity = async (adminId) => {
  * @returns {Promise<Object>} - Array of { hour, label, count }
  */
 export const getSosTrend = async (adminId) => {
-    try {
-        const response = await axiosInstance.get(`/sos/trend?admin_id=${adminId}`);
-        if (response.data.status === 'success') {
-            return {
-                success: true,
-                data: response.data.data
-            };
-        }
-        return { success: false, error: response.data.message };
-    } catch (error) {
-        console.error('Error fetching SOS trend:', error);
-        return {
-            success: false,
-            error: error.response?.data?.message || 'Network error'
-        };
+  try {
+    const response = await axiosInstance.get(`/sos/trend?admin_id=${adminId}`);
+    if (response.data.status === 'success') {
+      return {success: true, data: response.data.data};
     }
+    return {success: false, error: response.data.message};
+  } catch (error) {
+    console.error('Error fetching SOS trend:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Network error'
+    };
+  }
+};
+
+/**
+ * Get incoming/active SOS requests assigned to admin's hospital(s)
+ * @param {string|number} adminId - The admin's user ID
+ * @returns {Promise<Object>} - Array of enriched SOS requests with driver
+ *     locations
+ */
+export const getHospitalIncomingSos = async (adminId) => {
+  try {
+    const response =
+        await axiosInstance.post('/sos/hospital-incoming', {admin_id: adminId});
+    if (response.data.status === 'success') {
+      return {
+        success: true,
+        data: response.data.sos_requests,
+        count: response.data.count
+      };
+    }
+    return {success: false, error: response.data.message};
+  } catch (error) {
+    console.error('Error fetching hospital incoming SOS:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Network error'
+    };
+  }
 };
