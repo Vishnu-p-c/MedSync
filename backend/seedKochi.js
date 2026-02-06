@@ -893,10 +893,11 @@ const seedKochi = async () => {
     await mongoose.connect(process.env.MONGO_URL);
     console.log('MongoDB Connected');
 
-    // Hash password once
+    // Hash passwords once
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('pass123', salt);
-    console.log('Password hashed');
+    const hospitalPasswordHash = await bcrypt.hash('hospital123', salt);
+    console.log('Passwords hashed');
 
     // Get highest existing IDs
     const lastUser = await User.findOne().sort({user_id: -1}).lean();
@@ -927,6 +928,8 @@ const seedKochi = async () => {
               rushLevels[i % rushLevels.length],  // cycles: low, medium, high,
                                                   // critical
           default_schedule: randomSchedule(false),
+          NFC_SNO: null,
+          spass: hospitalPasswordHash,
           updated_at: new Date()
         }));
     await Hospital.insertMany(hospitals);
@@ -1205,7 +1208,8 @@ const seedKochi = async () => {
     console.log(`  Only Clinic:   ${onlyClinic}`);
     console.log(`  Both:          ${both}`);
     console.log(`Doctor schedules:${doctorSchedules.length}`);
-    console.log(`Password for all: pass123`);
+    console.log(`User password (all users):  pass123`);
+    console.log(`Hospital spass (all hospitals): hospital123`);
     console.log(`Rush levels:     cycling low→medium→high→critical`);
     console.log('========================================\n');
 
