@@ -159,6 +159,8 @@ Success Response:
   "status": "success",
   "user_id": 23,
   "doctor_id": 23,
+  "department": "Cardiology",
+  "qualifications": ["MBBS", "MD"],
   "matched_hospitals": ["City General Hospital"],
   "unmatched_hospitals": [],
   "matched_clinics": ["Heart Care Clinic"],

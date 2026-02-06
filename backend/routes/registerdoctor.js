@@ -374,6 +374,8 @@ router.post('/', async (req, res) => {
       status: 'success',
       user_id: newUser.user_id,
       doctor_id: doctorDetails.doctor_id,
+      department: doctorDetails.department,
+      qualifications: doctorDetails.qualifications,
       matched_hospitals: matchedHospitalNames,
       unmatched_hospitals: unmatchedHospitals,
       matched_clinics: matchedClinicNames,
