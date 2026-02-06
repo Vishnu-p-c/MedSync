@@ -332,10 +332,12 @@ router.post('/status', async (req, res) => {
                 .lean();
         return res.json({
           status: 'hospital_assigned',
+          driver_id: driverId,
           driver_name: driver ? `${(driver.first_name || '').trim()} ${
                                     (driver.last_name || '').trim()}`
                                     .trim() :
                                 null,
+          phone: driver ? driver.phone : null,
           vehicle_number: driver ? driver.vehicle_number : null,
           hospital_id: sos.assigned_hospital_id,
           hospital_name: hospital ? hospital.name : null,
@@ -354,10 +356,12 @@ router.post('/status', async (req, res) => {
 
       return res.json({
         status: 'driver_arrived',
+        driver_id: driverId,
         driver_name: driver ? `${(driver.first_name || '').trim()} ${
                                   (driver.last_name || '').trim()}`
                                   .trim() :
                               null,
+        phone: driver ? driver.phone : null,
         vehicle_number: driver ? driver.vehicle_number : null,
         assigned_hospital_id: sos.assigned_hospital_id || null,
         eta: 0,
@@ -390,10 +394,12 @@ router.post('/status', async (req, res) => {
 
       return res.json({
         status: 'assigned',
+        driver_id: driverId,
         driver_name: driver ? `${(driver.first_name || '').trim()} ${
                                   (driver.last_name || '').trim()}`
                                   .trim() :
                               null,
+        phone: driver ? driver.phone : null,
         vehicle_number: driver ? driver.vehicle_number : null,
         assigned_hospital_id: sos.assigned_hospital_id || null,
         eta: sos.eta_minutes || 10,

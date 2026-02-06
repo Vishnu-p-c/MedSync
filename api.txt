@@ -451,7 +451,9 @@ Success Response (awaiting driver):
 Success Response (assigned):
 {
   "status": "assigned",
+  "driver_id": 11,
   "driver_name": "Mike Anderson",
+  "phone": "1234567890",
   "vehicle_number": "ABC1234",
   "assigned_hospital_id": 1,
   "eta": 10,
@@ -463,7 +465,9 @@ Success Response (assigned):
 Success Response (driver arrived, hospital NOT yet assigned):
 {
   "status": "driver_arrived",
+  "driver_id": 11,
   "driver_name": "Mike Anderson",
+  "phone": "1234567890",
   "vehicle_number": "ABC1234",
   "assigned_hospital_id": null,
   "eta": 0,
@@ -475,7 +479,9 @@ Success Response (driver arrived, hospital NOT yet assigned):
 Success Response (hospital assigned):
 {
   "status": "hospital_assigned",
+  "driver_id": 11,
   "driver_name": "Mike Anderson",
+  "phone": "1234567890",
   "vehicle_number": "ABC1234",
   "hospital_id": 1,
   "hospital_name": "City General Hospital",
