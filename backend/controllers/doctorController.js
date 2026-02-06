@@ -1027,7 +1027,8 @@ const getDoctorWaitingQueue = async (req, res) => {
                schedule.hospital_schedule)) {
         const hospital =
             await Hospital.findOne({hospital_id: parseInt(hospitalId)}).lean();
-        const hospitalName = hospital ? hospital.name : locationData.location_name;
+        const hospitalName =
+            hospital ? hospital.name : locationData.location_name;
 
         // Find slots for today
         const todaySlots = locationData.slots.filter(s => s.day === today);
@@ -1113,9 +1114,10 @@ const getDoctorWaitingQueue = async (req, res) => {
       });
 
       // Enrich appointments with patient info
-      const enrichedAppointments = await Promise.all(
-          futureAppointments.map(async (apt) => {
-            const patient = await User.findOne({user_id: apt.patient_id}).lean();
+      const enrichedAppointments =
+          await Promise.all(futureAppointments.map(async (apt) => {
+            const patient =
+                await User.findOne({user_id: apt.patient_id}).lean();
             return {
               appointment_id: apt.appointment_id,
               patient_id: apt.patient_id,
@@ -1147,6 +1149,13 @@ const getDoctorWaitingQueue = async (req, res) => {
         avg_wait_time_minutes: avgWaitTimeMinutes
       });
     }
+
+    // Sort schedule slots by start time (earliest first)
+    scheduleSlots.sort((a, b) => {
+      const [aHour, aMin] = a.schedule_start.split(':').map(Number);
+      const [bHour, bMin] = b.schedule_start.split(':').map(Number);
+      return (aHour * 60 + aMin) - (bHour * 60 + bMin);
+    });
 
     // Sort all appointments by time
     allUpcomingAppointments.sort(
