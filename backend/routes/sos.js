@@ -5,6 +5,7 @@ const SosRequest = require('../models/SosRequest');
 const AmbulanceDriver = require('../models/AmbulanceDriver');
 const AmbulanceLiveLocation = require('../models/AmbulanceLiveLocation');
 const AmbulanceAssignment = require('../models/AmbulanceAssignment');
+const User = require('../models/User');
 const sosController = require('../controllers/sosController');
 const firebaseAdmin = require('../config/firebase');
 const Hospital = require('../models/Hospital');
@@ -310,10 +311,12 @@ router.post('/status', async (req, res) => {
     if (sos.status === 'driver_arrived') {
       const driverId = sos.assigned_driver_id;
       let driver = null;
+      let user = null;
       let live = null;
       if (driverId !== undefined && driverId !== null) {
         driver =
             await AmbulanceDriver.findOne({driver_id: Number(driverId)}).lean();
+        user = await User.findOne({user_id: Number(driverId)}).lean();
         try {
           live =
               await AmbulanceLiveLocation.findOne({driver_id: Number(driverId)})
@@ -337,7 +340,7 @@ router.post('/status', async (req, res) => {
                                     (driver.last_name || '').trim()}`
                                     .trim() :
                                 null,
-          phone: driver ? driver.phone : null,
+          phone: user ? user.phone : null,
           vehicle_number: driver ? driver.vehicle_number : null,
           hospital_id: sos.assigned_hospital_id,
           hospital_name: hospital ? hospital.name : null,
@@ -361,7 +364,7 @@ router.post('/status', async (req, res) => {
                                   (driver.last_name || '').trim()}`
                                   .trim() :
                               null,
-        phone: driver ? driver.phone : null,
+        phone: user ? user.phone : null,
         vehicle_number: driver ? driver.vehicle_number : null,
         assigned_hospital_id: sos.assigned_hospital_id || null,
         eta: 0,
@@ -376,10 +379,12 @@ router.post('/status', async (req, res) => {
     if (sos.status === 'assigned') {
       const driverId = sos.assigned_driver_id;
       let driver = null;
+      let user = null;
       let live = null;
       if (driverId !== undefined && driverId !== null) {
         driver =
             await AmbulanceDriver.findOne({driver_id: Number(driverId)}).lean();
+        user = await User.findOne({user_id: Number(driverId)}).lean();
         try {
           live =
               await AmbulanceLiveLocation.findOne({driver_id: Number(driverId)})
@@ -399,7 +404,7 @@ router.post('/status', async (req, res) => {
                                   (driver.last_name || '').trim()}`
                                   .trim() :
                               null,
-        phone: driver ? driver.phone : null,
+        phone: user ? user.phone : null,
         vehicle_number: driver ? driver.vehicle_number : null,
         assigned_hospital_id: sos.assigned_hospital_id || null,
         eta: sos.eta_minutes || 10,
