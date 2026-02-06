@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "migrate:doctor-attendance": "node migrateDoctorAttendance.js"
+    "migrate:doctor-attendance": "node migrateDoctorAttendance.js",
+    "cleanup:duplicate-hospitals": "node cleanupDuplicateHospitals.js"
   },
   "keywords": [],
   "author": "",
