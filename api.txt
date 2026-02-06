@@ -460,16 +460,33 @@ Success Response (assigned):
   "driver_longitude": -74.00
 }
 
-Success Response (driver arrived):
+Success Response (driver arrived, hospital NOT yet assigned):
 {
   "status": "driver_arrived",
   "driver_name": "Mike Anderson",
   "vehicle_number": "ABC1234",
-  "assigned_hospital_id": 1,
+  "assigned_hospital_id": null,
   "eta": 0,
   "driver_latitude": 40.72,
   "driver_longitude": -74.01,
   "severity": "moderate"
+}
+
+Success Response (hospital assigned):
+{
+  "status": "hospital_assigned",
+  "driver_name": "Mike Anderson",
+  "vehicle_number": "ABC1234",
+  "hospital_id": 1,
+  "hospital_name": "City General Hospital",
+  "hospital_address": "123 Main Street",
+  "hospital_latitude": 40.7128,
+  "hospital_longitude": -74.0060,
+  "rush_level": "medium",
+  "eta_minutes": 6,
+  "driver_latitude": 40.72,
+  "driver_longitude": -74.01,
+  "severity": "severe"
 }
 
 Success Response (cancelled/completed):
