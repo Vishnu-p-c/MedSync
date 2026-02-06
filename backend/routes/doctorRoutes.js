@@ -8,7 +8,8 @@ const {
   getBookingInfo,
   getDoctorSchedule,
   getDoctorSlots,
-  bookAppointment
+  bookAppointment,
+  getDoctorWaitingQueue
 } = require('../controllers/doctorController');
 
 // Create a new appointment
@@ -43,5 +44,9 @@ router.get('/:doctor_id/schedule', getDoctorSchedule);
 // GET
 // /doctor/:doctor_id/slots?location_type=hospital&location_id=5&date=2026-01-23
 router.get('/:doctor_id/slots', getDoctorSlots);
+
+// Get doctor's waiting queue for today
+// POST /doctor/waiting-queue
+router.post('/waiting-queue', getDoctorWaitingQueue);
 
 module.exports = router;

@@ -230,14 +230,14 @@ const getDoctorAppointments = async (req, res) => {
 
     for (const apt of appointments) {
       const patient = await User.findOne({user_id: apt.patient_id});
-      
+
       // Fetch hospital name if hospital_id is present
       let hospitalName = null;
       if (apt.hospital_id) {
         const hospital = await Hospital.findOne({hospital_id: apt.hospital_id});
         hospitalName = hospital ? hospital.name : null;
       }
-      
+
       const appointmentData = {
         appointment_id: apt.appointment_id,
         patient_id: apt.patient_id,
@@ -971,6 +971,215 @@ const bookAppointment = async (req, res) => {
   }
 };
 
+// POST /doctor/waiting-queue - Get doctor's waiting queue for today
+const getDoctorWaitingQueue = async (req, res) => {
+  try {
+    const {doctor_id} = req.body;
+
+    if (!doctor_id) {
+      return res.json(
+          {status: 'fail', message: 'missing_fields', missing: ['doctor_id']});
+    }
+
+    const doctorIdNum = parseInt(doctor_id);
+    if (isNaN(doctorIdNum)) {
+      return res.json({status: 'fail', message: 'doctor_id_must_be_number'});
+    }
+
+    // Verify doctor exists
+    const doctor = await Doctor.findOne({doctor_id: doctorIdNum}).lean();
+    if (!doctor) {
+      return res.json({status: 'fail', message: 'doctor_not_found'});
+    }
+
+    // Get doctor's schedule
+    const schedule =
+        await DoctorSchedule.findOne({doctor_id: doctorIdNum}).lean();
+    if (!schedule) {
+      return res.json({status: 'fail', message: 'schedule_not_found'});
+    }
+
+    // Get current date/time
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+
+    // Get day of week
+    const days = [
+      'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday',
+      'saturday'
+    ];
+    const today = days[now.getDay()];
+
+    // Start and end of today for querying appointments
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Collect all location schedules for today
+    const locationSchedules = [];
+
+    // Process hospital schedules
+    if (schedule.hospital_schedule) {
+      for (const [hospitalId, locationData] of Object.entries(
+               schedule.hospital_schedule)) {
+        const hospital =
+            await Hospital.findOne({hospital_id: parseInt(hospitalId)}).lean();
+        const hospitalName = hospital ? hospital.name : locationData.location_name;
+
+        // Find slots for today
+        const todaySlots = locationData.slots.filter(s => s.day === today);
+        for (const slot of todaySlots) {
+          locationSchedules.push({
+            location_type: 'hospital',
+            location_id: parseInt(hospitalId),
+            location_name: hospitalName,
+            slot: slot
+          });
+        }
+      }
+    }
+
+    // Process clinic schedules
+    if (schedule.clinic_schedule) {
+      for (const [clinicId, locationData] of Object.entries(
+               schedule.clinic_schedule)) {
+        const clinic =
+            await Clinic.findOne({clinic_id: parseInt(clinicId)}).lean();
+        const clinicName = clinic ? clinic.name : locationData.location_name;
+
+        // Find slots for today
+        const todaySlots = locationData.slots.filter(s => s.day === today);
+        for (const slot of todaySlots) {
+          locationSchedules.push({
+            location_type: 'clinic',
+            location_id: parseInt(clinicId),
+            location_name: clinicName,
+            slot: slot
+          });
+        }
+      }
+    }
+
+    // Build response with future slots only
+    const scheduleSlots = [];
+    let allUpcomingAppointments = [];
+    let nextAppointmentMinutes = null;
+
+    for (const locSchedule of locationSchedules) {
+      const slot = locSchedule.slot;
+      const [startHour, startMin] = slot.start.split(':').map(Number);
+      const [endHour, endMin] = slot.end.split(':').map(Number);
+      const slotStartMinutes = startHour * 60 + startMin;
+      const slotEndMinutes = endHour * 60 + endMin;
+
+      // Skip if slot has completely passed
+      if (slotEndMinutes <= currentTotalMinutes) {
+        continue;
+      }
+
+      // Query appointments for this location and time range today
+      const appointmentQuery = {
+        doctor_id: doctorIdNum,
+        appointment_time: {$gte: startOfDay, $lte: endOfDay},
+        status: {$ne: 'cancelled'}
+      };
+
+      if (locSchedule.location_type === 'hospital') {
+        appointmentQuery.hospital_id = locSchedule.location_id;
+        appointmentQuery.consultation_place = 'hospital';
+      } else {
+        appointmentQuery.clinic_id = locSchedule.location_id;
+        appointmentQuery.consultation_place = 'clinic';
+      }
+
+      const appointments = await Appointment.find(appointmentQuery).lean();
+
+      // Filter to only appointments within this slot's time range
+      const slotAppointments = appointments.filter(apt => {
+        const aptTime = new Date(apt.appointment_time);
+        const aptHour = aptTime.getHours();
+        const aptMin = aptTime.getMinutes();
+        const aptTotalMin = aptHour * 60 + aptMin;
+        return aptTotalMin >= slotStartMinutes && aptTotalMin < slotEndMinutes;
+      });
+
+      // Count only future appointments within this slot
+      const futureAppointments = slotAppointments.filter(apt => {
+        const aptTime = new Date(apt.appointment_time);
+        return aptTime > now;
+      });
+
+      // Enrich appointments with patient info
+      const enrichedAppointments = await Promise.all(
+          futureAppointments.map(async (apt) => {
+            const patient = await User.findOne({user_id: apt.patient_id}).lean();
+            return {
+              appointment_id: apt.appointment_id,
+              patient_id: apt.patient_id,
+              patient_name: patient ?
+                  `${patient.first_name} ${patient.last_name || ''}`.trim() :
+                  'Unknown',
+              location_type: locSchedule.location_type,
+              location_id: locSchedule.location_id,
+              location_name: locSchedule.location_name,
+              appointment_time: apt.appointment_time,
+              token_number: apt.token_number
+            };
+          }));
+
+      allUpcomingAppointments.push(...enrichedAppointments);
+
+      const totalPatientsBooked = futureAppointments.length;
+      const avgWaitTimeMinutes = totalPatientsBooked * 12;
+
+      scheduleSlots.push({
+        location_type: locSchedule.location_type,
+        location_id: locSchedule.location_id,
+        location_name: locSchedule.location_name,
+        schedule_start: slot.start,
+        schedule_end: slot.end,
+        slot_duration: slot.slot_duration || 30,
+        max_patients_per_slot: slot.max_patients || 4,
+        total_patients_booked: totalPatientsBooked,
+        avg_wait_time_minutes: avgWaitTimeMinutes
+      });
+    }
+
+    // Sort all appointments by time
+    allUpcomingAppointments.sort(
+        (a, b) => new Date(a.appointment_time) - new Date(b.appointment_time));
+
+    // Calculate next appointment in minutes
+    if (allUpcomingAppointments.length > 0) {
+      const nextApt = new Date(allUpcomingAppointments[0].appointment_time);
+      const diffMs = nextApt - now;
+      nextAppointmentMinutes = Math.max(0, Math.ceil(diffMs / 60000));
+    }
+
+    return res.json({
+      status: 'success',
+      doctor_id: doctorIdNum,
+      doctor_name: `${doctor.first_name} ${doctor.last_name || ''}`.trim(),
+      department: doctor.department,
+      date: now.toISOString().split('T')[0],
+      day: today,
+      current_time: `${String(currentHour).padStart(2, '0')}:${
+          String(currentMinute).padStart(2, '0')}`,
+      next_appointment_in_minutes: nextAppointmentMinutes,
+      total_upcoming_appointments: allUpcomingAppointments.length,
+      schedule_slots: scheduleSlots,
+      upcoming_appointments: allUpcomingAppointments
+    });
+
+  } catch (error) {
+    console.error('Get doctor waiting queue error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
 module.exports = {
   createAppointment,
   getPatientAppointments,
@@ -979,5 +1188,6 @@ module.exports = {
   getBookingInfo,
   getDoctorSchedule,
   getDoctorSlots,
-  bookAppointment
+  bookAppointment,
+  getDoctorWaitingQueue
 };
