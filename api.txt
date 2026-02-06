@@ -1095,6 +1095,7 @@ Success Response:
 
 Notes:
 - Only returns schedule slots that haven't completely passed (based on current time)
+- schedule_slots are sorted by schedule_start time (earliest first)
 - avg_wait_time_minutes = total_patients_booked × 12 minutes
 - next_appointment_in_minutes = minutes until the soonest upcoming appointment
 - If no upcoming appointments, next_appointment_in_minutes will be null
