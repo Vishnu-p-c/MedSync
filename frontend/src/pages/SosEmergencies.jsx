@@ -3,6 +3,7 @@ import SideNav from '../components/SideNav';
 import TopNavbar from '../components/TopNavbar';
 import GlassSurface from '../components/GlassSurface/GlassSurface';
 import { getHospitalIncomingSos } from '../api/sosApi';
+import { getFrontendConfig } from '../api/configApi';
 
 const SosEmergencies = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -10,13 +11,13 @@ const SosEmergencies = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSos, setSelectedSos] = useState(null);
   const [mapError, setMapError] = useState(null);
+  const [googleMapsApiKey, setGoogleMapsApiKey] = useState('');
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef({});
   const routePolylineRef = useRef(null);
 
   const userId = localStorage.getItem('userId');
-  const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_API_MAP;
 
   // Severity styling
   const getSeverityStyle = (severity) => {
@@ -323,29 +324,38 @@ const SosEmergencies = () => {
     }
   }, [userId, selectedSos]);
 
-  // Initialize map on mount
+  // Fetch config and initialize map on mount
   useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY) {
-      setMapError('Google Maps API key not configured. Please set VITE_API_MAP environment variable.');
-      return;
-    }
+    const loadConfig = async () => {
+      const configResult = await getFrontendConfig();
+      
+      if (!configResult.success || !configResult.config.googleMapsApiKey) {
+        setMapError('Google Maps API key not configured on server. Please contact administrator.');
+        return;
+      }
 
-    // Load Google Maps API
-    if (!window.google || !window.google.maps) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
+      const apiKey = configResult.config.googleMapsApiKey;
+      setGoogleMapsApiKey(apiKey);
+
+      // Load Google Maps API
+      if (!window.google || !window.google.maps) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          initializeMap();
+        };
+        script.onerror = () => {
+          setMapError('Failed to load Google Maps. Please check your network connection.');
+        };
+        document.head.appendChild(script);
+      } else {
         initializeMap();
-      };
-      script.onerror = () => {
-        setMapError('Failed to load Google Maps. Please check your API key and network connection.');
-      };
-      document.head.appendChild(script);
-    } else {
-      initializeMap();
-    }
+      }
+    };
+
+    loadConfig();
 
     return () => {
       // Cleanup map on unmount
@@ -353,7 +363,7 @@ const SosEmergencies = () => {
         mapRef.current = null;
       }
     };
-  }, [GOOGLE_MAPS_API_KEY, initializeMap]);
+  }, [initializeMap]);
 
   // Fetch SOS on mount and poll every 5 seconds
   useEffect(() => {
