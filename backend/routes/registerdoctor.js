@@ -7,6 +7,17 @@ const Hospital = require('../models/Hospital');
 const Clinic = require('../models/Clinic');
 const DoctorSchedule = require('../models/DoctorSchedule');
 
+const randomMorningTimeToday = () => {
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(6, 0, 0, 0);
+  const end = new Date(now);
+  end.setHours(11, 0, 0, 0);
+  const t = start.getTime() +
+      Math.floor(Math.random() * (end.getTime() - start.getTime()));
+  return new Date(t);
+};
+
 // Levenshtein distance for fuzzy matching
 const levenshteinDistance = (str1, str2) => {
   const s1 = str1.toLowerCase();
@@ -223,10 +234,28 @@ router.post('/', async (req, res) => {
     await newUser.save();
 
     // doctor_id must match user_id (1:1)
+    const initialHospitalAttendance = (matchedHospitalIds.length > 0) ?
+        matchedHospitalIds.reduce(
+            (acc, hid, idx) => {
+              const t = randomMorningTimeToday();
+              acc[String(hid)] = {last_marked_at: t, is_available: idx === 0};
+              return acc;
+            },
+            {}) :
+        {};
+    const initialCurrentHospitalId =
+        matchedHospitalIds.length > 0 ? matchedHospitalIds[0] : null;
+    const initialLastAttendanceTime = initialCurrentHospitalId ?
+        initialHospitalAttendance[String(initialCurrentHospitalId)]
+                ?.last_marked_at ||
+            null :
+        null;
+
     const doctorDetails = new DoctorDetails({
       doctor_id: newUser.user_id,
       first_name,
       last_name: last_name || null,
+      name: `${first_name || ''} ${last_name || ''}`.trim(),
       mrn,
       department,
       qualifications,
@@ -235,8 +264,10 @@ router.post('/', async (req, res) => {
       clinic_id: matchedClinicIds.length > 0 ? matchedClinicIds : null,
       hospitals: finalHospitalNames,
       clinics: finalClinicNames,
-      is_available: false,
-      last_attendance_time: null
+      is_available: Boolean(initialCurrentHospitalId),
+      last_attendance_time: initialLastAttendanceTime,
+      current_hospital_id: initialCurrentHospitalId,
+      hospital_attendance: initialHospitalAttendance
     });
 
     await doctorDetails.save();
