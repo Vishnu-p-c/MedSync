@@ -18,7 +18,7 @@ const cleanupDuplicateHospitals = async () => {
 
     // Step 1: Find all hospitals
     console.log('📋 Fetching all hospitals...');
-    const allHospitals = await Hospital.find({}).sort({ hospital_id: 1 });
+    const allHospitals = await Hospital.find({}).sort({hospital_id: 1});
     console.log(`Found ${allHospitals.length} hospitals\n`);
 
     // Step 2: Group hospitals by name (case-insensitive)
@@ -32,9 +32,10 @@ const cleanupDuplicateHospitals = async () => {
     });
 
     // Step 3: Find duplicates
-    const duplicateGroups = Object.entries(hospitalGroups).filter(
-      ([name, hospitals]) => hospitals.length > 1
-    );
+    const duplicateGroups =
+        Object.entries(hospitalGroups).filter(([
+                                                name, hospitals
+                                              ]) => hospitals.length > 1);
 
     if (duplicateGroups.length === 0) {
       console.log('✅ No duplicate hospitals found. Database is clean!');
@@ -42,7 +43,8 @@ const cleanupDuplicateHospitals = async () => {
       return;
     }
 
-    console.log(`🔍 Found ${duplicateGroups.length} duplicate hospital names:\n`);
+    console.log(
+        `🔍 Found ${duplicateGroups.length} duplicate hospital names:\n`);
 
     let totalMerged = 0;
     let totalDeleted = 0;
@@ -59,29 +61,35 @@ const cleanupDuplicateHospitals = async () => {
       const keepHospital = hospitals[0];
       const duplicateHospitals = hospitals.slice(1);
 
-      console.log(`   ✓ Keeping: ID ${keepHospital.hospital_id} (${keepHospital.name})`);
-      console.log(`   ✗ Removing: ${duplicateHospitals.map(h => `ID ${h.hospital_id}`).join(', ')}`);
+      console.log(`   ✓ Keeping: ID ${keepHospital.hospital_id} (${
+          keepHospital.name})`);
+      console.log(`   ✗ Removing: ${
+          duplicateHospitals.map(h => `ID ${h.hospital_id}`).join(', ')}`);
 
       for (const duplicateHospital of duplicateHospitals) {
         const dupId = duplicateHospital.hospital_id;
 
         // Update DoctorDetails - replace hospital_id in arrays
-        const doctorsWithDup = await DoctorDetails.find({ hospital_id: dupId });
+        const doctorsWithDup = await DoctorDetails.find({hospital_id: dupId});
         for (const doctor of doctorsWithDup) {
           // Remove duplicate ID
           doctor.hospital_id = doctor.hospital_id.filter(id => id !== dupId);
-          
+
           // Add keep ID if not already present
           if (!doctor.hospital_id.includes(keepHospital.hospital_id)) {
             doctor.hospital_id.push(keepHospital.hospital_id);
           }
 
           // Update hospital_attendance Map
-          if (doctor.hospital_attendance && doctor.hospital_attendance.has(dupId.toString())) {
-            const attendanceData = doctor.hospital_attendance.get(dupId.toString());
+          if (doctor.hospital_attendance &&
+              doctor.hospital_attendance.has(dupId.toString())) {
+            const attendanceData =
+                doctor.hospital_attendance.get(dupId.toString());
             // Move attendance data to kept hospital if it doesn't exist
-            if (!doctor.hospital_attendance.has(keepHospital.hospital_id.toString())) {
-              doctor.hospital_attendance.set(keepHospital.hospital_id.toString(), attendanceData);
+            if (!doctor.hospital_attendance.has(
+                    keepHospital.hospital_id.toString())) {
+              doctor.hospital_attendance.set(
+                  keepHospital.hospital_id.toString(), attendanceData);
             }
             doctor.hospital_attendance.delete(dupId.toString());
           }
@@ -99,61 +107,65 @@ const cleanupDuplicateHospitals = async () => {
 
         // Update HospitalAdmin - replace hospital_id
         const adminsUpdated = await HospitalAdmin.updateMany(
-          { hospital_id: dupId },
-          { $set: { hospital_id: keepHospital.hospital_id } }
-        );
+            {hospital_id: dupId},
+            {$set: {hospital_id: keepHospital.hospital_id}});
         if (adminsUpdated.modifiedCount > 0) {
-          console.log(`   ↳ Updated ${adminsUpdated.modifiedCount} hospital admin records`);
+          console.log(`   ↳ Updated ${
+              adminsUpdated.modifiedCount} hospital admin records`);
         }
 
         // Update SosRequest - replace assigned_hospital_id
         const sosUpdated = await SosRequest.updateMany(
-          { assigned_hospital_id: dupId },
-          { $set: { assigned_hospital_id: keepHospital.hospital_id } }
-        );
+            {assigned_hospital_id: dupId},
+            {$set: {assigned_hospital_id: keepHospital.hospital_id}});
         if (sosUpdated.modifiedCount > 0) {
-          console.log(`   ↳ Updated ${sosUpdated.modifiedCount} SOS request records`);
+          console.log(
+              `   ↳ Updated ${sosUpdated.modifiedCount} SOS request records`);
         }
 
-        // Update Appointment - replace location_id where location_type is 'hospital'
+        // Update Appointment - replace location_id where location_type is
+        // 'hospital'
         const appointmentsUpdated = await Appointment.updateMany(
-          { location_type: 'hospital', location_id: dupId },
-          { $set: { location_id: keepHospital.hospital_id } }
-        );
+            {location_type: 'hospital', location_id: dupId},
+            {$set: {location_id: keepHospital.hospital_id}});
         if (appointmentsUpdated.modifiedCount > 0) {
-          console.log(`   ↳ Updated ${appointmentsUpdated.modifiedCount} appointment records`);
+          console.log(`   ↳ Updated ${
+              appointmentsUpdated.modifiedCount} appointment records`);
         }
 
         // Update DoctorSchedule - replace keys in hospital_schedule Map
-        const schedulesWithDup = await DoctorSchedule.find({
-          [`hospital_schedule.${dupId}`]: { $exists: true }
-        });
+        const schedulesWithDup = await DoctorSchedule.find(
+            {[`hospital_schedule.${dupId}`]: {$exists: true}});
         for (const schedule of schedulesWithDup) {
           if (schedule.hospital_schedule.has(dupId.toString())) {
-            const scheduleData = schedule.hospital_schedule.get(dupId.toString());
+            const scheduleData =
+                schedule.hospital_schedule.get(dupId.toString());
             // Move schedule to kept hospital if it doesn't exist
-            if (!schedule.hospital_schedule.has(keepHospital.hospital_id.toString())) {
-              schedule.hospital_schedule.set(keepHospital.hospital_id.toString(), scheduleData);
+            if (!schedule.hospital_schedule.has(
+                    keepHospital.hospital_id.toString())) {
+              schedule.hospital_schedule.set(
+                  keepHospital.hospital_id.toString(), scheduleData);
             }
             schedule.hospital_schedule.delete(dupId.toString());
             await schedule.save();
           }
         }
         if (schedulesWithDup.length > 0) {
-          console.log(`   ↳ Updated ${schedulesWithDup.length} doctor schedule records`);
+          console.log(`   ↳ Updated ${
+              schedulesWithDup.length} doctor schedule records`);
         }
 
         // Update Rush - replace facility_id where facility_type is 'hospital'
         const rushUpdated = await Rush.updateMany(
-          { facility_type: 'hospital', facility_id: dupId },
-          { $set: { facility_id: keepHospital.hospital_id } }
-        );
+            {facility_type: 'hospital', facility_id: dupId},
+            {$set: {facility_id: keepHospital.hospital_id}});
         if (rushUpdated.modifiedCount > 0) {
-          console.log(`   ↳ Updated ${rushUpdated.modifiedCount} rush level records`);
+          console.log(
+              `   ↳ Updated ${rushUpdated.modifiedCount} rush level records`);
         }
 
         // Delete duplicate hospital
-        await Hospital.deleteOne({ hospital_id: dupId });
+        await Hospital.deleteOne({hospital_id: dupId});
         console.log(`   ✓ Deleted duplicate hospital ID ${dupId}`);
         totalDeleted++;
       }

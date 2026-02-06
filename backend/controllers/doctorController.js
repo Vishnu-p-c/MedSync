@@ -230,6 +230,14 @@ const getDoctorAppointments = async (req, res) => {
 
     for (const apt of appointments) {
       const patient = await User.findOne({user_id: apt.patient_id});
+      
+      // Fetch hospital name if hospital_id is present
+      let hospitalName = null;
+      if (apt.hospital_id) {
+        const hospital = await Hospital.findOne({hospital_id: apt.hospital_id});
+        hospitalName = hospital ? hospital.name : null;
+      }
+      
       const appointmentData = {
         appointment_id: apt.appointment_id,
         patient_id: apt.patient_id,
@@ -237,6 +245,7 @@ const getDoctorAppointments = async (req, res) => {
             `${patient.first_name} ${patient.last_name || ''}`.trim() :
             'Unknown',
         hospital_id: apt.hospital_id,
+        hospital_name: hospitalName,
         clinic_id: apt.clinic_id,
         consultation_place: apt.consultation_place,
         clinic_name: apt.clinic_name,
