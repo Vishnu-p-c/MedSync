@@ -6,11 +6,10 @@ const Clinic = require('./models/Clinic');
 
 /**
  * Migration script to:
- * 1. Remove default_schedule from all hospitals
- * 2. Add NFC_SNO and spass fields to all hospitals
- * 3. Remove default_schedule from all clinics
- * 4. Add NFC_SNO and spass fields to all clinics
- * Run this once to update all existing records
+ * 1. Remove default_schedule from all hospitals and clinics
+ * 2. Add NFC_SNO and spass fields to all hospitals and clinics
+ * 
+ * Uses raw MongoDB operations to bypass Mongoose schema defaults
  */
 const migrateHospitalAndClinicFields = async () => {
   try {
@@ -24,121 +23,82 @@ const migrateHospitalAndClinicFields = async () => {
     console.log('Passwords hashed');
 
     // ========================================================================
-    // MIGRATE HOSPITALS
+    // MIGRATE HOSPITALS - using updateMany for efficiency
     // ========================================================================
-    const hospitals = await Hospital.find({});
-    console.log(`\nFound ${hospitals.length} hospitals in database`);
+    console.log('\n--- MIGRATING HOSPITALS ---');
 
-    let hospitalUpdatedCount = 0;
-    let hospitalAlreadyCleanCount = 0;
+    // Count hospitals
+    const hospitalCount = await Hospital.countDocuments({});
+    console.log(`Total hospitals in database: ${hospitalCount}`);
 
-    for (const hospital of hospitals) {
-      const updateFields = {};
-      const unsetFields = {};
-      let needsUpdate = false;
+    // Remove default_schedule from all hospitals
+    const removeScheduleResult = await Hospital.updateMany(
+      { default_schedule: { $exists: true } },
+      { $unset: { default_schedule: '' } }
+    );
+    console.log(`✅ Removed default_schedule from ${removeScheduleResult.modifiedCount} hospitals`);
 
-      // Remove default_schedule if it exists
-      if (hospital.default_schedule !== undefined) {
-        unsetFields.default_schedule = '';
-        needsUpdate = true;
-      }
+    // Add NFC_SNO to hospitals that don't have it
+    const addNfcResult = await Hospital.updateMany(
+      { NFC_SNO: { $exists: false } },
+      { $set: { NFC_SNO: null } }
+    );
+    console.log(`✅ Added NFC_SNO to ${addNfcResult.modifiedCount} hospitals`);
 
-      // Add NFC_SNO if missing
-      if (hospital.NFC_SNO === undefined) {
-        updateFields.NFC_SNO = null;
-        needsUpdate = true;
-      }
-
-      // Add spass if missing
-      if (hospital.spass === undefined) {
-        updateFields.spass = hospitalPasswordHash;
-        needsUpdate = true;
-      }
-
-      if (needsUpdate) {
-        const updateOperation = {};
-        if (Object.keys(updateFields).length > 0) {
-          updateOperation.$set = updateFields;
-        }
-        if (Object.keys(unsetFields).length > 0) {
-          updateOperation.$unset = unsetFields;
-        }
-
-        await Hospital.updateOne(
-            {hospital_id: hospital.hospital_id}, updateOperation);
-        hospitalUpdatedCount++;
-        console.log(
-            `✅ Updated hospital_id ${hospital.hospital_id}: ${hospital.name}`);
-      } else {
-        hospitalAlreadyCleanCount++;
-      }
-    }
+    // Add spass to hospitals that don't have it
+    const addSpassResult = await Hospital.updateMany(
+      { spass: { $exists: false } },
+      { $set: { spass: hospitalPasswordHash } }
+    );
+    console.log(`✅ Added spass to ${addSpassResult.modifiedCount} hospitals`);
 
     // ========================================================================
-    // MIGRATE CLINICS
+    // MIGRATE CLINICS - using updateMany for efficiency
     // ========================================================================
-    const clinics = await Clinic.find({});
-    console.log(`\nFound ${clinics.length} clinics in database`);
+    console.log('\n--- MIGRATING CLINICS ---');
 
-    let clinicUpdatedCount = 0;
-    let clinicAlreadyCleanCount = 0;
+    // Count clinics
+    const clinicCount = await Clinic.countDocuments({});
+    console.log(`Total clinics in database: ${clinicCount}`);
 
-    for (const clinic of clinics) {
-      const updateFields = {};
-      const unsetFields = {};
-      let needsUpdate = false;
+    // Remove default_schedule from all clinics
+    const removeClinicScheduleResult = await Clinic.updateMany(
+      { default_schedule: { $exists: true } },
+      { $unset: { default_schedule: '' } }
+    );
+    console.log(`✅ Removed default_schedule from ${removeClinicScheduleResult.modifiedCount} clinics`);
 
-      // Remove default_schedule if it exists
-      if (clinic.default_schedule !== undefined) {
-        unsetFields.default_schedule = '';
-        needsUpdate = true;
-      }
+    // Add NFC_SNO to clinics that don't have it
+    const addClinicNfcResult = await Clinic.updateMany(
+      { NFC_SNO: { $exists: false } },
+      { $set: { NFC_SNO: null } }
+    );
+    console.log(`✅ Added NFC_SNO to ${addClinicNfcResult.modifiedCount} clinics`);
 
-      // Add NFC_SNO if missing
-      if (clinic.NFC_SNO === undefined) {
-        updateFields.NFC_SNO = null;
-        needsUpdate = true;
-      }
+    // Add spass to clinics that don't have it
+    const addClinicSpassResult = await Clinic.updateMany(
+      { spass: { $exists: false } },
+      { $set: { spass: clinicPasswordHash } }
+    );
+    console.log(`✅ Added spass to ${addClinicSpassResult.modifiedCount} clinics`);
 
-      // Add spass if missing
-      if (clinic.spass === undefined) {
-        updateFields.spass = clinicPasswordHash;
-        needsUpdate = true;
-      }
-
-      if (needsUpdate) {
-        const updateOperation = {};
-        if (Object.keys(updateFields).length > 0) {
-          updateOperation.$set = updateFields;
-        }
-        if (Object.keys(unsetFields).length > 0) {
-          updateOperation.$unset = unsetFields;
-        }
-
-        await Clinic.updateOne({clinic_id: clinic.clinic_id}, updateOperation);
-        clinicUpdatedCount++;
-        console.log(`✅ Updated clinic_id ${clinic.clinic_id}: ${clinic.name}`);
-      } else {
-        clinicAlreadyCleanCount++;
-      }
-    }
-
+    // ========================================================================
+    // SUMMARY
+    // ========================================================================
     console.log('\n========================================');
     console.log('MIGRATION COMPLETE');
     console.log('========================================');
-    console.log(`\nHOSPITALS:`);
-    console.log(`  Total hospitals:              ${hospitals.length}`);
-    console.log(`  Updated:                      ${hospitalUpdatedCount}`);
-    console.log(`  Already clean (skipped):      ${hospitalAlreadyCleanCount}`);
-    console.log(`\nCLINICS:`);
-    console.log(`  Total clinics:                ${clinics.length}`);
-    console.log(`  Updated:                      ${clinicUpdatedCount}`);
-    console.log(`  Already clean (skipped):      ${clinicAlreadyCleanCount}`);
-    console.log(`\nChanges applied:`);
-    console.log(`  ✓ Removed default_schedule field`);
-    console.log(`  ✓ Added NFC_SNO: null`);
-    console.log(
-        `  ✓ Added spass (hospital123 for hospitals, clinic123 for clinics)`);
+    console.log(`\nHOSPITALS (${hospitalCount} total):`);
+    console.log(`  default_schedule removed: ${removeScheduleResult.modifiedCount}`);
+    console.log(`  NFC_SNO added:            ${addNfcResult.modifiedCount}`);
+    console.log(`  spass added:              ${addSpassResult.modifiedCount}`);
+    console.log(`\nCLINICS (${clinicCount} total):`);
+    console.log(`  default_schedule removed: ${removeClinicScheduleResult.modifiedCount}`);
+    console.log(`  NFC_SNO added:            ${addClinicNfcResult.modifiedCount}`);
+    console.log(`  spass added:              ${addClinicSpassResult.modifiedCount}`);
+    console.log(`\nPasswords used:`);
+    console.log(`  Hospital spass: hospital123`);
+    console.log(`  Clinic spass:   clinic123`);
     console.log('========================================\n');
 
     mongoose.connection.close();
@@ -148,6 +108,11 @@ const migrateHospitalAndClinicFields = async () => {
     console.error('❌ Error migrating fields:', err);
     mongoose.connection.close();
     process.exit(1);
+  }
+};
+
+// Run migration
+migrateHospitalAndClinicFields();;
   }
 };
 
