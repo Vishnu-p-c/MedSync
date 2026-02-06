@@ -1033,6 +1033,82 @@ Failure Responses:
 
 --------------------------------------------------------------------------------
 
+POST /doctor/waiting-queue
+--------------------------------------------------------------------------------
+Description: Get doctor's waiting queue for today. Returns all upcoming schedule
+             slots (future only) across all locations the doctor consults at,
+             with patient counts and estimated wait times.
+
+Request Body:
+{
+  "doctor_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "doctor_id": 12,
+  "doctor_name": "Dr. Mohammed Fazil",
+  "department": "Gastroenterology",
+  "date": "2026-02-07",
+  "day": "saturday",
+  "current_time": "10:30",
+  "next_appointment_in_minutes": 15,
+  "total_upcoming_appointments": 8,
+  "schedule_slots": [
+    {
+      "location_type": "hospital",
+      "location_id": 5,
+      "location_name": "City Hospital",
+      "schedule_start": "09:00",
+      "schedule_end": "13:00",
+      "slot_duration": 30,
+      "max_patients_per_slot": 4,
+      "total_patients_booked": 5,
+      "avg_wait_time_minutes": 60
+    },
+    {
+      "location_type": "clinic",
+      "location_id": 2,
+      "location_name": "Good Health Clinic",
+      "schedule_start": "14:00",
+      "schedule_end": "18:00",
+      "slot_duration": 30,
+      "max_patients_per_slot": 4,
+      "total_patients_booked": 3,
+      "avg_wait_time_minutes": 36
+    }
+  ],
+  "upcoming_appointments": [
+    {
+      "appointment_id": 45,
+      "patient_id": 101,
+      "patient_name": "John Doe",
+      "location_type": "hospital",
+      "location_id": 5,
+      "location_name": "City Hospital",
+      "appointment_time": "2026-02-07T10:45:00.000Z",
+      "token_number": 2
+    }
+  ]
+}
+
+Notes:
+- Only returns schedule slots that haven't completely passed (based on current time)
+- avg_wait_time_minutes = total_patients_booked × 12 minutes
+- next_appointment_in_minutes = minutes until the soonest upcoming appointment
+- If no upcoming appointments, next_appointment_in_minutes will be null
+- Appointments are sorted by appointment_time (soonest first)
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["doctor_id"] }
+{ "status": "fail", "message": "doctor_id_must_be_number" }
+{ "status": "fail", "message": "doctor_not_found" }
+{ "status": "fail", "message": "schedule_not_found" }
+{ "status": "error", "message": "server_error" }
+
+--------------------------------------------------------------------------------
+
 POST /doctor/list
 --------------------------------------------------------------------------------
 Description: Get paginated list of doctors with optional filters and location-based
