@@ -33,6 +33,8 @@ Success Response:
   "latitude": 40.75,
   "longitude": -74.01,
   "created_at": "2026-01-01T00:00:00.000Z",
+  "department": "Cardiology" (for doctors only, null otherwise),
+  "qualifications": ["MBBS", "MD"] (array for doctors only, null otherwise),
   "address": "123 Main St" (for non-drivers),
   "license_number": "DL123" (for drivers only),
   "vehicle_number": "ABC1234" (for drivers only)
@@ -2428,6 +2430,64 @@ Failure Responses:
 { "status": "fail", "message": "invalid_nfc_sno" }
 { "status": "fail", "message": "hospital_spass_not_set" }
 { "status": "fail", "message": "invalid_spass" }
+
+POST /hospital/attendence-status
+--------------------------------------------------------------------------------
+Description: Retrieves the doctor's attendance status across all their assigned
+             hospitals. Returns hospital details and availability status for each.
+
+Request Body:
+{
+  "user_id": number (required) - The doctor user_id
+}
+
+Success Response:
+{
+  "status": "success",
+  "doctor_id": 123,
+  "doctor_name": "Dr. John Smith",
+  "current_hospital_id": 7,
+  "hospitals": [
+    {
+      "hospital_id": 5,
+      "hospital_name": "Aster Medcity Kozhikode",
+      "address": "Chevayur, Kozhikode, Kerala 673017",
+      "is_available": false,
+      "last_marked_at": "2026-02-05T08:30:00.000Z"
+    },
+    {
+      "hospital_id": 7,
+      "hospital_name": "PVS Memorial Hospital",
+      "address": "Beach Road, Kozhikode, Kerala 673032",
+      "is_available": true,
+      "last_marked_at": "2026-02-06T09:15:00.000Z"
+    }
+  ],
+  "total_hospitals": 2
+}
+
+Notes:
+  - Returns all hospitals where the doctor is assigned
+  - `is_available` indicates whether doctor is currently available at that hospital
+  - Only ONE hospital should have `is_available: true` at a time
+  - `current_hospital_id` shows which hospital the doctor last marked attendance at
+  - `last_marked_at` shows the last time attendance was marked at each hospital
+  - Hospitals are sorted by hospital_id
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["user_id"] }
+{ "status": "fail", "message": "user_id_must_be_number" }
+{ "status": "fail", "message": "user_not_found" }
+{ "status": "fail", "message": "user_not_doctor" }
+{ "status": "fail", "message": "doctor_record_not_found" }
+
+Empty Hospital List:
+{
+  "status": "success",
+  "doctor_id": 123,
+  "hospitals": [],
+  "message": "no_hospitals_assigned"
+}
 
 ================================================================================
                               END OF API REFERENCE
