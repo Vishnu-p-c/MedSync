@@ -325,6 +325,33 @@ router.post('/status', async (req, res) => {
         }
       }
 
+      // Check if hospital has been assigned
+      if (sos.assigned_hospital_id) {
+        const hospital =
+            await Hospital.findOne({hospital_id: sos.assigned_hospital_id})
+                .lean();
+        return res.json({
+          status: 'hospital_assigned',
+          driver_name: driver ? `${(driver.first_name || '').trim()} ${
+                                    (driver.last_name || '').trim()}`
+                                    .trim() :
+                                null,
+          vehicle_number: driver ? driver.vehicle_number : null,
+          hospital_id: sos.assigned_hospital_id,
+          hospital_name: hospital ? hospital.name : null,
+          hospital_address: hospital ? hospital.address : null,
+          hospital_latitude: hospital ? hospital.latitude : null,
+          hospital_longitude: hospital ? hospital.longitude : null,
+          rush_level: hospital ? hospital.rush_level : null,
+          eta_minutes: sos.eta_minutes || null,
+          driver_latitude: live && live.latitude !== undefined ? live.latitude :
+                                                                 null,
+          driver_longitude:
+              live && live.longitude !== undefined ? live.longitude : null,
+          severity: sos.severity || 'unknown'
+        });
+      }
+
       return res.json({
         status: 'driver_arrived',
         driver_name: driver ? `${(driver.first_name || '').trim()} ${
