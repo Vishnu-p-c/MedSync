@@ -49,26 +49,6 @@ const qualificationSets = [
   ['MBBS', 'FRCS'], ['MBBS', 'MRCP'], ['MBBS', 'MD', 'DNB']
 ];
 
-function randomSchedule(isClinic) {
-  const numDays = Math.floor(Math.random() * 3) + (isClinic ? 2 : 3);
-  const days = [...weekdays, 'saturday']
-                   .sort(() => 0.5 - Math.random())
-                   .slice(0, numDays);
-  return days.map(day => {
-    const pool = isClinic ?
-        eveningSlots :
-        (Math.random() > 0.5 ? morningSlots : afternoonSlots);
-    const t = getRandom(pool);
-    return {
-      day,
-      start: t.start,
-      end: t.end,
-      slot_duration: 30,
-      max_patients: Math.floor(Math.random() * 3) + 3
-    };
-  });
-}
-
 // ============================================================================
 // DATA - 50 KOCHI HOSPITALS
 // ============================================================================
@@ -897,6 +877,7 @@ const seedKochi = async () => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('pass123', salt);
     const hospitalPasswordHash = await bcrypt.hash('hospital123', salt);
+    const clinicPasswordHash = await bcrypt.hash('clinic123', salt);
     console.log('Passwords hashed');
 
     // Get highest existing IDs
@@ -927,7 +908,6 @@ const seedKochi = async () => {
           rush_level:
               rushLevels[i % rushLevels.length],  // cycles: low, medium, high,
                                                   // critical
-          default_schedule: randomSchedule(false),
           NFC_SNO: null,
           spass: hospitalPasswordHash,
           updated_at: new Date()
@@ -947,7 +927,8 @@ const seedKochi = async () => {
                                       address: c.address,
                                       latitude: c.lat,
                                       longitude: c.lon,
-                                      default_schedule: randomSchedule(true)
+                                      NFC_SNO: null,
+                                      spass: clinicPasswordHash
                                     }));
     await Clinic.insertMany(clinics);
     nextClinicId += clinics.length;
@@ -1208,8 +1189,9 @@ const seedKochi = async () => {
     console.log(`  Only Clinic:   ${onlyClinic}`);
     console.log(`  Both:          ${both}`);
     console.log(`Doctor schedules:${doctorSchedules.length}`);
-    console.log(`User password (all users):  pass123`);
+    console.log(`User password (all users):     pass123`);
     console.log(`Hospital spass (all hospitals): hospital123`);
+    console.log(`Clinic spass (all clinics):     clinic123`);
     console.log(`Rush levels:     cycling low→medium→high→critical`);
     console.log('========================================\n');
 
