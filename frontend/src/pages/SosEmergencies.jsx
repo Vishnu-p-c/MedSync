@@ -13,9 +13,10 @@ const SosEmergencies = () => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef({});
-  const routeLayerRef = useRef(null);
+  const routePolylineRef = useRef(null);
 
   const userId = localStorage.getItem('userId');
+  const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_API_MAP;
 
   // Severity styling
   const getSeverityStyle = (severity) => {
@@ -82,146 +83,208 @@ const SosEmergencies = () => {
     }
   };
 
-  // Initialize Leaflet map
+  // Initialize Google Maps
   const initializeMap = useCallback(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Check if Leaflet is available
-    if (typeof window !== 'undefined' && window.L) {
-      const L = window.L;
-      
+    if (!window.google || !window.google.maps) {
+      setMapError('Google Maps not loaded. Please refresh the page.');
+      return;
+    }
+
+    try {
       // Default to Kochi coordinates
       const defaultLat = 9.9312;
       const defaultLng = 76.2673;
 
-      mapRef.current = L.map(mapContainerRef.current).setView([defaultLat, defaultLng], 12);
-
-      // Add tile layer (OpenStreetMap)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(mapRef.current);
+      mapRef.current = new window.google.maps.Map(mapContainerRef.current, {
+        center: { lat: defaultLat, lng: defaultLng },
+        zoom: 12,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+        styles: [
+          {
+            featureType: 'all',
+            elementType: 'geometry',
+            stylers: [{ color: '#242f3e' }]
+          },
+          {
+            featureType: 'all',
+            elementType: 'labels.text.stroke',
+            stylers: [{ color: '#242f3e' }]
+          },
+          {
+            featureType: 'all',
+            elementType: 'labels.text.fill',
+            stylers: [{ color: '#746855' }]
+          },
+          {
+            featureType: 'water',
+            elementType: 'geometry',
+            stylers: [{ color: '#17263c' }]
+          }
+        ]
+      });
 
       setMapError(null);
-    } else {
-      setMapError('Map library not loaded. Please refresh the page.');
+    } catch (error) {
+      console.error('Error initializing Google Maps:', error);
+      setMapError('Failed to initialize map. Please refresh the page.');
     }
   }, []);
 
   // Update map markers and route
   const updateMap = useCallback((sos) => {
-    if (!mapRef.current || !window.L) return;
-
-    const L = window.L;
+    if (!mapRef.current || !window.google) return;
 
     // Clear existing markers
     Object.values(markersRef.current).forEach(marker => {
-      marker.remove();
+      marker.setMap(null);
     });
     markersRef.current = {};
 
     // Clear existing route
-    if (routeLayerRef.current) {
-      routeLayerRef.current.remove();
-      routeLayerRef.current = null;
+    if (routePolylineRef.current) {
+      routePolylineRef.current.setMap(null);
+      routePolylineRef.current = null;
     }
 
     if (!sos) return;
 
-    const bounds = [];
+    const bounds = new window.google.maps.LatLngBounds();
 
-    // Hospital marker (red)
+    // Hospital marker (red with cross icon)
     if (sos.hospital_latitude && sos.hospital_longitude) {
-      const hospitalIcon = L.divIcon({
-        className: 'custom-div-icon',
-        html: `<div style="background-color: #ef4444; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>
-          </svg>
-        </div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+      const hospitalPos = { lat: sos.hospital_latitude, lng: sos.hospital_longitude };
+      
+      const hospitalMarker = new window.google.maps.Marker({
+        position: hospitalPos,
+        map: mapRef.current,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          fillColor: '#ef4444',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 3,
+          scale: 12
+        },
+        title: sos.hospital_name || 'Hospital',
+        animation: window.google.maps.Animation.DROP
       });
 
-      const hospitalMarker = L.marker([sos.hospital_latitude, sos.hospital_longitude], { icon: hospitalIcon })
-        .addTo(mapRef.current)
-        .bindPopup(`<b>Hospital</b><br/>${sos.hospital_name || 'Unknown Hospital'}`);
+      const hospitalInfoWindow = new window.google.maps.InfoWindow({
+        content: `<div style="color: #000; padding: 8px;">
+          <strong>Hospital</strong><br/>
+          ${sos.hospital_name || 'Unknown Hospital'}
+        </div>`
+      });
+
+      hospitalMarker.addListener('click', () => {
+        hospitalInfoWindow.open(mapRef.current, hospitalMarker);
+      });
+
       markersRef.current.hospital = hospitalMarker;
-      bounds.push([sos.hospital_latitude, sos.hospital_longitude]);
+      bounds.extend(hospitalPos);
     }
 
     // Patient marker (orange)
     if (sos.patient_latitude && sos.patient_longitude) {
-      const patientIcon = L.divIcon({
-        className: 'custom-div-icon',
-        html: `<div style="background-color: #f97316; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-          </svg>
-        </div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+      const patientPos = { lat: sos.patient_latitude, lng: sos.patient_longitude };
+      
+      const patientMarker = new window.google.maps.Marker({
+        position: patientPos,
+        map: mapRef.current,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          fillColor: '#f97316',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 3,
+          scale: 12
+        },
+        title: sos.patient_name || 'Patient',
+        animation: window.google.maps.Animation.DROP
       });
 
-      const patientMarker = L.marker([sos.patient_latitude, sos.patient_longitude], { icon: patientIcon })
-        .addTo(mapRef.current)
-        .bindPopup(`<b>Patient: ${sos.patient_name || 'Unknown'}</b><br/>SOS #${sos.sos_id}`);
+      const patientInfoWindow = new window.google.maps.InfoWindow({
+        content: `<div style="color: #000; padding: 8px;">
+          <strong>Patient: ${sos.patient_name || 'Unknown'}</strong><br/>
+          SOS #${sos.sos_id}
+        </div>`
+      });
+
+      patientMarker.addListener('click', () => {
+        patientInfoWindow.open(mapRef.current, patientMarker);
+      });
+
       markersRef.current.patient = patientMarker;
-      bounds.push([sos.patient_latitude, sos.patient_longitude]);
+      bounds.extend(patientPos);
     }
 
-    // Driver marker (blue) - animated
+    // Driver marker (blue, animated)
     if (sos.driver_latitude && sos.driver_longitude) {
-      const driverIcon = L.divIcon({
-        className: 'custom-div-icon',
-        html: `<div style="background-color: #3b82f6; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white">
-            <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
-          </svg>
-        </div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
+      const driverPos = { lat: sos.driver_latitude, lng: sos.driver_longitude };
+      
+      const driverMarker = new window.google.maps.Marker({
+        position: driverPos,
+        map: mapRef.current,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          fillColor: '#3b82f6',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 3,
+          scale: 14
+        },
+        title: sos.driver_name || 'Driver',
+        animation: window.google.maps.Animation.BOUNCE
       });
 
-      const driverMarker = L.marker([sos.driver_latitude, sos.driver_longitude], { icon: driverIcon })
-        .addTo(mapRef.current)
-        .bindPopup(`<b>Driver: ${sos.driver_name || 'Unknown'}</b><br/>Vehicle: ${sos.vehicle_number || 'N/A'}`);
+      const driverInfoWindow = new window.google.maps.InfoWindow({
+        content: `<div style="color: #000; padding: 8px;">
+          <strong>Driver: ${sos.driver_name || 'Unknown'}</strong><br/>
+          Vehicle: ${sos.vehicle_number || 'N/A'}
+        </div>`
+      });
+
+      driverMarker.addListener('click', () => {
+        driverInfoWindow.open(mapRef.current, driverMarker);
+      });
+
       markersRef.current.driver = driverMarker;
-      bounds.push([sos.driver_latitude, sos.driver_longitude]);
+      bounds.extend(driverPos);
     }
 
-    // Draw route from driver to hospital (if both exist)
+    // Draw route from driver to patient to hospital
     if (sos.driver_latitude && sos.driver_longitude && 
         sos.hospital_latitude && sos.hospital_longitude) {
-      // Also include patient location in the route if available
-      const routePoints = [];
+      const routePath = [];
       
       // Start: Driver
-      routePoints.push([sos.driver_latitude, sos.driver_longitude]);
+      routePath.push({ lat: sos.driver_latitude, lng: sos.driver_longitude });
       
       // Optional: Patient pickup
       if (sos.patient_latitude && sos.patient_longitude) {
-        routePoints.push([sos.patient_latitude, sos.patient_longitude]);
+        routePath.push({ lat: sos.patient_latitude, lng: sos.patient_longitude });
       }
       
       // End: Hospital
-      routePoints.push([sos.hospital_latitude, sos.hospital_longitude]);
+      routePath.push({ lat: sos.hospital_latitude, lng: sos.hospital_longitude });
 
-      routeLayerRef.current = L.polyline(routePoints, {
-        color: '#3b82f6',
-        weight: 4,
-        opacity: 0.8,
-        dashArray: '10, 10',
-        lineCap: 'round'
-      }).addTo(mapRef.current);
+      routePolylineRef.current = new window.google.maps.Polyline({
+        path: routePath,
+        geodesic: true,
+        strokeColor: '#3b82f6',
+        strokeOpacity: 0.8,
+        strokeWeight: 4,
+        map: mapRef.current
+      });
     }
 
     // Fit bounds if we have markers
-    if (bounds.length > 0) {
-      if (bounds.length === 1) {
-        mapRef.current.setView(bounds[0], 14);
-      } else {
-        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-      }
+    if (!bounds.isEmpty()) {
+      mapRef.current.fitBounds(bounds, { padding: 50 });
     }
   }, []);
 
@@ -262,36 +325,35 @@ const SosEmergencies = () => {
 
   // Initialize map on mount
   useEffect(() => {
-    // Load Leaflet CSS
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
+    if (!GOOGLE_MAPS_API_KEY) {
+      setMapError('Google Maps API key not configured. Please set VITE_API_MAP environment variable.');
+      return;
     }
 
-    // Load Leaflet JS
-    if (!window.L && !document.getElementById('leaflet-js')) {
+    // Load Google Maps API
+    if (!window.google || !window.google.maps) {
       const script = document.createElement('script');
-      script.id = 'leaflet-js';
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
+      script.async = true;
+      script.defer = true;
       script.onload = () => {
         initializeMap();
       };
+      script.onerror = () => {
+        setMapError('Failed to load Google Maps. Please check your API key and network connection.');
+      };
       document.head.appendChild(script);
-    } else if (window.L) {
+    } else {
       initializeMap();
     }
 
     return () => {
       // Cleanup map on unmount
       if (mapRef.current) {
-        mapRef.current.remove();
         mapRef.current = null;
       }
     };
-  }, [initializeMap]);
+  }, [GOOGLE_MAPS_API_KEY, initializeMap]);
 
   // Fetch SOS on mount and poll every 5 seconds
   useEffect(() => {
@@ -322,15 +384,6 @@ const SosEmergencies = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#030B12] overflow-x-hidden">
-      {/* Add pulse animation CSS */}
-      <style>{`
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-          70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
-      `}</style>
-
       <SideNav isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
