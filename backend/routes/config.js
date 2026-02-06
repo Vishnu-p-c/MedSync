@@ -16,10 +16,8 @@ router.get('/frontend', (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching frontend config:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch configuration'
-    });
+    res.status(500).json(
+        {success: false, message: 'Failed to fetch configuration'});
   }
 });
 

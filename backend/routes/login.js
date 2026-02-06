@@ -2,6 +2,7 @@ const router = require('express').Router();
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const AmbulanceDriver = require('../models/AmbulanceDriver');
+const DoctorDetails = require('../models/Doctor');
 
 router.post('/', async (req, res) => {
   const {username, email, password} = req.body;
@@ -35,7 +36,9 @@ router.post('/', async (req, res) => {
     gender: user.gender,
     latitude: user.latitude,
     longitude: user.longitude,
-    created_at: user.created_at
+    created_at: user.created_at,
+    department: null,
+    qualifications: null
   };
 
   // If user is a driver, return license_number and vehicle_number instead of
@@ -49,6 +52,22 @@ router.post('/', async (req, res) => {
     } catch (err) {
       baseResponse.license_number = null;
       baseResponse.vehicle_number = null;
+    }
+  } else if (user.role === 'doctor') {
+    // If user is a doctor, return department and qualifications
+    try {
+      const doctor =
+          await DoctorDetails.findOne({doctor_id: user.user_id}).lean();
+      baseResponse.department = doctor ? doctor.department : null;
+      baseResponse.qualifications =
+          doctor && Array.isArray(doctor.qualifications) ?
+          doctor.qualifications :
+          null;
+      baseResponse.address = user.address;
+    } catch (err) {
+      baseResponse.department = null;
+      baseResponse.qualifications = null;
+      baseResponse.address = user.address;
     }
   } else {
     baseResponse.address = user.address;

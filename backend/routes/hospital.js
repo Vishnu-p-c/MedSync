@@ -580,4 +580,93 @@ router.post('/attendence-mark', async (req, res) => {
   }
 });
 
+// POST /hospital/attendence-status
+// Body: { user_id: Number }
+// Returns doctor's attendance status across all their hospitals
+router.post('/attendence-status', async (req, res) => {
+  try {
+    const {user_id} = req.body;
+
+    if (user_id === undefined || user_id === null) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_fields', missing: ['user_id']});
+    }
+
+    const userIdNum = Number(user_id);
+    if (isNaN(userIdNum)) {
+      return res.status(400).json(
+          {status: 'fail', message: 'user_id_must_be_number'});
+    }
+
+    // Find user to verify they're a doctor
+    const user = await User.findOne({user_id: userIdNum}).lean();
+    if (!user) {
+      return res.status(404).json({status: 'fail', message: 'user_not_found'});
+    }
+
+    if (user.role !== 'doctor') {
+      return res.status(403).json({status: 'fail', message: 'user_not_doctor'});
+    }
+
+    // Find doctor details
+    const doctor = await DoctorDetails.findOne({doctor_id: userIdNum}).lean();
+    if (!doctor) {
+      return res.status(404).json(
+          {status: 'fail', message: 'doctor_record_not_found'});
+    }
+
+    // Get hospital IDs the doctor is associated with
+    const hospitalIds =
+        Array.isArray(doctor.hospital_id) ? doctor.hospital_id : [];
+
+    if (hospitalIds.length === 0) {
+      return res.json({
+        status: 'success',
+        doctor_id: userIdNum,
+        hospitals: [],
+        message: 'no_hospitals_assigned'
+      });
+    }
+
+    // Fetch hospital details for all associated hospitals
+    const hospitals = await Hospital.find({hospital_id: {$in: hospitalIds}})
+                          .select('hospital_id name address')
+                          .lean();
+
+    // Get attendance map
+    const attendanceMap = doctor.hospital_attendance || {};
+
+    // Build response array with hospital details and attendance status
+    const hospitalsWithStatus = hospitals.map(hospital => {
+      const key = String(hospital.hospital_id);
+      const attendance = attendanceMap[key] || {};
+
+      return {
+        hospital_id: hospital.hospital_id,
+        hospital_name: hospital.name,
+        address: hospital.address,
+        is_available: attendance.is_available || false,
+        last_marked_at: attendance.last_marked_at || null
+      };
+    });
+
+    // Sort by hospital_id for consistent ordering
+    hospitalsWithStatus.sort((a, b) => a.hospital_id - b.hospital_id);
+
+    return res.json({
+      status: 'success',
+      doctor_id: userIdNum,
+      doctor_name: doctor.name ||
+          `${doctor.first_name || ''} ${doctor.last_name || ''}`.trim(),
+      current_hospital_id: doctor.current_hospital_id || null,
+      hospitals: hospitalsWithStatus,
+      total_hospitals: hospitalsWithStatus.length
+    });
+
+  } catch (err) {
+    console.error('Error in /hospital/attendence-status:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
 module.exports = router;

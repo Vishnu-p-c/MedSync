@@ -11,12 +11,6 @@ export const getFrontendConfig = async () => {
     return response.data;
   } catch (error) {
     console.error('Error fetching frontend config:', error);
-    return {
-      success: false,
-      config: {
-        googleMapsApiKey: '',
-        apiUrl: ''
-      }
-    };
+    return {success: false, config: {googleMapsApiKey: '', apiUrl: ''}};
   }
 };
