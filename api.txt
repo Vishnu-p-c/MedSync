@@ -1448,6 +1448,156 @@ Success Response:
 Notes:
 - FCM notifications sent with priority: high
 - Invalid FCM tokens are automatically cleared
+- Notification payload structure:
+  * title: "New Hospital Alert"
+  * body: "<Hospital Name>: <message>"
+  * data: { type, conversation_id, hospital_id, doctor_id, hospital_name }
+
+--------------------------------------------------------------------------------
+
+GET /doctor/conversations
+--------------------------------------------------------------------------------
+Description: Get all conversations for a doctor (for Android messaging inbox).
+
+Query Parameters:
+{
+  "doctor_id": number (required),
+  "type": "hospital_doctor | patient_doctor" (optional, filter by conversation type)
+}
+
+Example Request:
+GET /doctor/conversations?doctor_id=23&type=hospital_doctor
+
+Success Response:
+{
+  "status": "success",
+  "doctor_id": 23,
+  "total_conversations": 3,
+  "conversations": [
+    {
+      "conversation_id": "65f3abc123...",
+      "type": "hospital_doctor",
+      "hospital_id": 5,
+      "hospital_name": "City Hospital",
+      "last_message": "Please report to ER immediately",
+      "last_message_at": "2026-02-12T10:30:00.000Z",
+      "unread_count": 2,
+      "created_at": "2026-02-10T08:00:00.000Z"
+    },
+    {
+      "conversation_id": "65f3def456...",
+      "type": "hospital_doctor",
+      "hospital_id": 8,
+      "hospital_name": "Metro Medical Center",
+      "last_message": "Staff meeting tomorrow at 9 AM",
+      "last_message_at": "2026-02-11T16:20:00.000Z",
+      "unread_count": 0,
+      "created_at": "2026-02-08T12:00:00.000Z"
+    }
+  ]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_field: doctor_id" }
+{ "status": "fail", "message": "doctor_id_must_be_number" }
+{ "status": "fail", "message": "doctor_not_found" }
+{ "status": "error", "message": "server_error" }
+
+--------------------------------------------------------------------------------
+
+GET /messages/:conversation_id
+--------------------------------------------------------------------------------
+Description: Get all messages in a conversation.
+
+Path Parameters:
+- conversation_id: MongoDB ObjectId of the conversation
+
+Query Parameters:
+{
+  "doctor_id": number (required, to verify participant access)
+}
+
+Example Request:
+GET /messages/65f3abc123...?doctor_id=23
+
+Success Response:
+{
+  "status": "success",
+  "conversation_id": "65f3abc123...",
+  "total_messages": 5,
+  "messages": [
+    {
+      "message_id": "65f3abc789...",
+      "sender_id": 5,
+      "sender_role": "hospital",
+      "receiver_id": 23,
+      "receiver_role": "doctor",
+      "message_type": "text",
+      "content": "Please report to ER immediately",
+      "media_url": null,
+      "is_read": false,
+      "created_at": "2026-02-12T10:30:00.000Z"
+    },
+    {
+      "message_id": "65f3abc790...",
+      "sender_id": 5,
+      "sender_role": "hospital",
+      "receiver_id": 23,
+      "receiver_role": "doctor",
+      "message_type": "text",
+      "content": "We have multiple critical cases",
+      "media_url": null,
+      "is_read": false,
+      "created_at": "2026-02-12T10:31:00.000Z"
+    }
+  ]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_field: conversation_id" }
+{ "status": "fail", "message": "missing_field: doctor_id" }
+{ "status": "fail", "message": "doctor_id_must_be_number" }
+{ "status": "fail", "message": "conversation_not_found" }
+{ "status": "fail", "message": "not_conversation_participant" }
+{ "status": "error", "message": "server_error" }
+
+--------------------------------------------------------------------------------
+
+POST /messages/mark-read
+--------------------------------------------------------------------------------
+Description: Mark all messages in a conversation as read (clears unread badge).
+
+Request Body:
+{
+  "conversation_id": "string" (required, MongoDB ObjectId),
+  "user_id": number (required, doctor_id/hospital_id/patient_id)
+}
+
+Example Request:
+{
+  "conversation_id": "65f3abc123...",
+  "user_id": 23
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "messages_marked_as_read",
+  "conversation_id": "65f3abc123...",
+  "messages_marked": 2
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["conversation_id", "user_id"] }
+{ "status": "fail", "message": "user_id_must_be_number" }
+{ "status": "fail", "message": "conversation_not_found" }
+{ "status": "fail", "message": "not_conversation_participant" }
+{ "status": "error", "message": "server_error" }
+
+Notes:
+- Automatically updates conversation.unread_count for the user's role
+- Sets message.is_read = true and message.read_at = current timestamp
+- Only marks messages where user is the receiver
 - Creates new conversations if they don't exist
 - Updates existing conversations with new message
 - Increments unread_count for doctors

@@ -13,6 +13,9 @@ const {
   updateDoctorFcmToken
 } = require('../controllers/doctorController');
 
+const {getDoctorConversations, getConversationMessages, markMessagesAsRead} =
+    require('../controllers/doctorMessagingController');
+
 // Create a new appointment
 // POST /doctor/appointment
 router.post('/appointment', createAppointment);
@@ -53,5 +56,9 @@ router.post('/waiting-queue', getDoctorWaitingQueue);
 // Update doctor's FCM token for push notifications
 // POST /doctor/update-fcm-token
 router.post('/update-fcm-token', updateDoctorFcmToken);
+
+// Get all conversations for a doctor
+// GET /doctor/conversations?doctor_id=23&type=hospital_doctor
+router.get('/conversations', getDoctorConversations);
 
 module.exports = router;

@@ -154,7 +154,8 @@ const sendMessageToDoctor = async (req, res) => {
         // Send FCM notification if doctor has a token
         if (doctor.fcm_token) {
           const fcmResult = await sendFCMNotification(
-              doctor.fcm_token, 'New Hospital Message', message, {
+              doctor.fcm_token, 'New Hospital Alert',
+              `${hospital.name}: ${message.substring(0, 100)}`, {
                 type: 'hospital_message',
                 conversation_id: conversation._id.toString(),
                 hospital_id: hospitalIdNum.toString(),
