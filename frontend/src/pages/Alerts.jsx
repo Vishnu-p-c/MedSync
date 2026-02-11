@@ -20,8 +20,35 @@ const Alerts = () => {
   const [sendToAll, setSendToAll] = useState(false);
   const [message, setMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [hospitalId, setHospitalId] = useState(null);
 
-  const userId = localStorage.getItem('userId');
+  const userId = localStorage.getItem('userId'); // This is admin_id
+
+  // Fetch hospital_id from admin_id
+  const fetchHospitalId = useCallback(async () => {
+    if (!userId) return;
+    
+    try {
+      console.log('Fetching hospital_id for admin_id:', userId);
+      const response = await axiosInstance.post('/hospital/admin_hospital', {
+        admin_id: parseInt(userId)
+      });
+      console.log('Hospital info response:', response.data);
+      
+      if (response.data.status === 'success' && response.data.hospital_id) {
+        setHospitalId(response.data.hospital_id);
+        console.log('Set hospital_id to:', response.data.hospital_id);
+      } else {
+        console.error('No hospital_id found for admin');
+      }
+    } catch (error) {
+      console.error('Error fetching hospital_id:', error);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchHospitalId();
+  }, [fetchHospitalId]);
 
   // Fetch alerts
   const fetchAlerts = useCallback(async () => {
@@ -50,19 +77,33 @@ const Alerts = () => {
 
   // Fetch doctors linked to hospital
   const fetchDoctors = useCallback(async () => {
+    if (!hospitalId) {
+      console.log('No hospital_id available yet');
+      return;
+    }
+    
     try {
+      console.log('Fetching doctors for hospital_id:', hospitalId);
       const response = await axiosInstance.post('/doctor/list', {
-        hospital_id: parseInt(userId), // Filter by current hospital
+        hospital_id: parseInt(hospitalId), // Use hospitalId instead of userId
         page: 1,
         limit: 1000
       });
+      console.log('Doctor list response:', response.data);
       if (response.data.status === 'success') {
-        setDoctors(response.data.doctors || []);
+        const doctorsList = response.data.doctors || [];
+        console.log('Doctors found:', doctorsList.length);
+        setDoctors(doctorsList);
+      } else {
+        console.error('Failed to fetch doctors:', response.data.message);
+        setDoctors([]);
       }
     } catch (error) {
       console.error('Error fetching doctors:', error);
+      console.error('Error details:', error.response?.data);
+      setDoctors([]);
     }
-  }, [userId]);
+  }, [hospitalId]); // Use hospitalId instead of userId
 
   // Open message modal and fetch doctors
   const openMessageModal = () => {
@@ -93,10 +134,15 @@ const Alerts = () => {
       return;
     }
 
+    if (!hospitalId) {
+      alert('Hospital ID not available. Please refresh the page.');
+      return;
+    }
+
     setSendingMessage(true);
     try {
       const response = await axiosInstance.post('/hospital/send-message', {
-        hospital_id: parseInt(userId),
+        hospital_id: parseInt(hospitalId), // Use hospitalId instead of userId
         doctor_ids: sendToAll ? 'all' : selectedDoctors,
         message: message
       });
