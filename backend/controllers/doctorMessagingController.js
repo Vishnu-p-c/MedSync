@@ -113,10 +113,9 @@ const getConversationMessages = async (req, res) => {
     const hospitalIds =
         [...new Set(messages.filter(m => m.sender_role === 'hospital')
                         .map(m => m.sender_id))];
-    const doctorIds = [
-      ...new Set(messages.filter(m => m.sender_role === 'doctor')
-                     .map(m => m.sender_id))
-    ];
+    const doctorIds =
+        [...new Set(messages.filter(m => m.sender_role === 'doctor')
+                        .map(m => m.sender_id))];
 
     const hospitals = await Hospital.find({hospital_id: {$in: hospitalIds}})
                           .select('hospital_id name')
@@ -133,8 +132,7 @@ const getConversationMessages = async (req, res) => {
 
     const doctorMap = {};
     doctors.forEach(d => {
-      doctorMap[d.doctor_id] =
-          `${d.first_name} ${d.last_name || ''}`.trim();
+      doctorMap[d.doctor_id] = `${d.first_name} ${d.last_name || ''}`.trim();
     });
 
     // Format messages for Android app
