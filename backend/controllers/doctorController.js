@@ -1189,6 +1189,53 @@ const getDoctorWaitingQueue = async (req, res) => {
   }
 };
 
+// POST /doctor/update-fcm-token - Update doctor's FCM token for push
+// notifications
+const updateDoctorFcmToken = async (req, res) => {
+  try {
+    const {doctor_id, fcm_token} = req.body;
+
+    // Validate required fields
+    if (!doctor_id || !fcm_token) {
+      return res.json({
+        status: 'fail',
+        message: 'missing_fields',
+        missing: !doctor_id && !fcm_token ? ['doctor_id', 'fcm_token'] :
+            !doctor_id                    ? ['doctor_id'] :
+                                            ['fcm_token']
+      });
+    }
+
+    // Validate doctor_id is a number
+    const doctorIdNum = parseInt(doctor_id);
+    if (isNaN(doctorIdNum)) {
+      return res.json({status: 'fail', message: 'doctor_id_must_be_number'});
+    }
+
+    // Find and update doctor
+    const doctor = await Doctor.findOne({doctor_id: doctorIdNum});
+    if (!doctor) {
+      return res.json({status: 'fail', message: 'doctor_not_found'});
+    }
+
+    // Update FCM token and timestamp
+    doctor.fcm_token = fcm_token.trim();
+    doctor.token_last_update = new Date();
+    await doctor.save();
+
+    return res.json({
+      status: 'success',
+      message: 'fcm_token_updated',
+      doctor_id: doctorIdNum,
+      token_last_update: doctor.token_last_update
+    });
+
+  } catch (error) {
+    console.error('Update doctor FCM token error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
 module.exports = {
   createAppointment,
   getPatientAppointments,
@@ -1198,5 +1245,6 @@ module.exports = {
   getDoctorSchedule,
   getDoctorSlots,
   bookAppointment,
-  getDoctorWaitingQueue
+  getDoctorWaitingQueue,
+  updateDoctorFcmToken
 };

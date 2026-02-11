@@ -35,7 +35,11 @@ const doctorDetailsSchema = new mongoose.Schema({
   // Optional: hospital names (for display) if needed
   hospitals: {type: [String], default: []},
   // Clinic names where the doctor consults
-  clinics: {type: [String], default: []}
+  clinics: {type: [String], default: []},
+  // FCM token for push notifications (hospital messages)
+  fcm_token: {type: String, default: null, trim: true},
+  // Last time FCM token was updated
+  token_last_update: {type: Date, default: null}
 });
 
 module.exports = mongoose.model('DoctorDetails', doctorDetailsSchema);

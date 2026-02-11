@@ -1185,6 +1185,32 @@ Success Response (with location):
 Note: Distance is calculated using the Haversine formula. The nearest_location
       shows the closest hospital OR clinic where the doctor consults.
 
+--------------------------------------------------------------------------------
+
+POST /doctor/update-fcm-token
+--------------------------------------------------------------------------------
+Description: Update doctor's FCM token for receiving push notifications from hospitals.
+
+Request Body:
+{
+  "doctor_id": number (required),
+  "fcm_token": "string" (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "fcm_token_updated",
+  "doctor_id": 12,
+  "token_last_update": "2026-02-11T10:30:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["doctor_id", "fcm_token"] }
+{ "status": "fail", "message": "doctor_id_must_be_number" }
+{ "status": "fail", "message": "doctor_not_found" }
+{ "status": "error", "message": "server_error" }
+
 ================================================================================
 10. HOSPITAL & CLINIC MANAGEMENT
 ================================================================================
@@ -1375,6 +1401,86 @@ Failure Responses:
 { "status": "fail", "message": "missing_field: admin_id" }
 { "status": "fail", "message": "admin_id_must_be_number" }
 { "status": "fail", "message": "admin_not_found" }
+
+--------------------------------------------------------------------------------
+
+POST /hospital/send-message
+--------------------------------------------------------------------------------
+Description: Send message from hospital to doctor(s) with FCM push notification.
+             Messages are stored in conversations and delivered via Firebase Cloud Messaging.
+
+Request Body:
+{
+  "hospital_id": number (required),
+  "doctor_ids": [number] | "all" (required),
+  "message": "string" (required, max 2000 chars)
+}
+
+Example Request (Specific Doctors):
+{
+  "hospital_id": 5,
+  "doctor_ids": [12, 15, 20],
+  "message": "Emergency meeting at 3 PM today. Please confirm attendance."
+}
+
+Example Request (All Doctors):
+{
+  "hospital_id": 5,
+  "doctor_ids": "all",
+  "message": "Hospital will be closed for maintenance on Sunday."
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "messages_sent",
+  "hospital_id": 5,
+  "hospital_name": "City Hospital",
+  "results": {
+    "total_doctors": 8,
+    "messages_sent": 8,
+    "notifications_sent": 6,
+    "failed_notifications": 2,
+    "conversations_created": 3
+  }
+}
+
+Notes:
+- FCM notifications sent with priority: high
+- Invalid FCM tokens are automatically cleared
+- Creates new conversations if they don't exist
+- Updates existing conversations with new message
+- Increments unread_count for doctors
+- Doctor cannot initiate hospital chat (can only reply)
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["hospital_id", "doctor_ids", "message"] }
+{ "status": "fail", "message": "hospital_id_must_be_number" }
+{ "status": "fail", "message": "hospital_not_found" }
+{ "status": "fail", "message": "invalid_doctor_ids" }
+{ "status": "fail", "message": "no_doctors_found_for_hospital" }
+{ "status": "fail", "message": "no_doctors_found" }
+{ "status": "fail", "message": "doctor_ids_must_be_array_or_all" }
+{ "status": "error", "message": "server_error" }
+
+FCM Notification Payload:
+{
+  "title": "New Hospital Message",
+  "body": "<message content>",
+  "data": {
+    "type": "hospital_message",
+    "conversation_id": "...",
+    "hospital_id": "...",
+    "doctor_id": "...",
+    "hospital_name": "..."
+  },
+  "android": {
+    "priority": "high",
+    "notification": {
+      "priority": "max"
+    }
+  }
+}
 
 ================================================================================
 11. APPOINTMENT BOOKING FLOW
