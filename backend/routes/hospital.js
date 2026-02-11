@@ -6,6 +6,7 @@ const HospitalAdmin = require('../models/HospitalAdmin');
 const EquipmentStatus = require('../models/Equipment');
 const bcrypt = require('bcryptjs');
 const DoctorDetails = require('../models/Doctor');
+const {sendMessageToDoctor} = require('../controllers/hospitalController');
 
 const randomMorningTimeToday = () => {
   const now = new Date();
@@ -668,5 +669,10 @@ router.post('/attendence-status', async (req, res) => {
     return res.status(500).json({status: 'error', message: 'server_error'});
   }
 });
+
+// POST /hospital/send-message
+// Body: { hospital_id, doctor_ids, message }
+// Send message from hospital to doctor(s)
+router.post('/send-message', sendMessageToDoctor);
 
 module.exports = router;

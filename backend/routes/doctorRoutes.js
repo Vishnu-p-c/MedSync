@@ -9,7 +9,8 @@ const {
   getDoctorSchedule,
   getDoctorSlots,
   bookAppointment,
-  getDoctorWaitingQueue
+  getDoctorWaitingQueue,
+  updateDoctorFcmToken
 } = require('../controllers/doctorController');
 
 // Create a new appointment
@@ -48,5 +49,9 @@ router.get('/:doctor_id/slots', getDoctorSlots);
 // Get doctor's waiting queue for today
 // POST /doctor/waiting-queue
 router.post('/waiting-queue', getDoctorWaitingQueue);
+
+// Update doctor's FCM token for push notifications
+// POST /doctor/update-fcm-token
+router.post('/update-fcm-token', updateDoctorFcmToken);
 
 module.exports = router;
