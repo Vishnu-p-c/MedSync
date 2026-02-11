@@ -314,8 +314,9 @@ const listDoctors = async (req, res) => {
       ];
     }
 
+    // hospital_id is an array in Doctor model, use $in to check membership
     if (hospital_id) {
-      filter.hospital_id = parseInt(hospital_id);
+      filter.hospital_id = { $in: [parseInt(hospital_id)] };
     }
 
     if (available === true || available === 'true') {

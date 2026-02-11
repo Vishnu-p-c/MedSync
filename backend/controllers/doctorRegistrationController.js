@@ -219,16 +219,18 @@ exports.registerDoctorByAdmin = async (req, res) => {
       }
     }
 
-    // Auto-assign admin's facility if no hospitals/clinics specified
-    if (matchedHospitalIds.length === 0 && matchedClinicIds.length === 0) {
-      if (adminRecord.admin_type === 'hospital' && adminRecord.hospital_id) {
-        matchedHospitalIds.push(adminRecord.hospital_id);
+    // ALWAYS ensure the admin's facility is included (doctors must belong to the admin's hospital/clinic)
+    if (adminRecord.admin_type === 'hospital' && adminRecord.hospital_id) {
+      if (!matchedHospitalIds.includes(adminRecord.hospital_id)) {
+        matchedHospitalIds.unshift(adminRecord.hospital_id); // Add admin's hospital first
         const hospital = await Hospital.findOne({ hospital_id: adminRecord.hospital_id }).lean();
-        if (hospital) matchedHospitalNames.push(hospital.name);
-      } else if (adminRecord.admin_type === 'clinic' && adminRecord.clinic_id) {
-        matchedClinicIds.push(adminRecord.clinic_id);
+        if (hospital) matchedHospitalNames.unshift(hospital.name);
+      }
+    } else if (adminRecord.admin_type === 'clinic' && adminRecord.clinic_id) {
+      if (!matchedClinicIds.includes(adminRecord.clinic_id)) {
+        matchedClinicIds.unshift(adminRecord.clinic_id); // Add admin's clinic first
         const clinic = await Clinic.findOne({ clinic_id: adminRecord.clinic_id }).lean();
-        if (clinic) matchedClinicNames.push(clinic.name);
+        if (clinic) matchedClinicNames.unshift(clinic.name);
       }
     }
 
