@@ -3,6 +3,7 @@ import SideNav from '../components/SideNav';
 import TopNavbar from '../components/TopNavbar';
 import GlassSurface from '../components/GlassSurface/GlassSurface';
 import { getAllAlerts } from '../api/alertsApi';
+import axiosInstance from '../utils/axiosInstance';
 
 const Alerts = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -11,6 +12,14 @@ const Alerts = () => {
   const [filter, setFilter] = useState('all'); // 'all', 'critical', 'warning', 'info'
   const [filteredAlerts, setFilteredAlerts] = useState([]);
   const [summary, setSummary] = useState({ total: 0, critical: 0, warning: 0, info: 0 });
+  
+  // Message modal state
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [doctors, setDoctors] = useState([]);
+  const [selectedDoctors, setSelectedDoctors] = useState([]);
+  const [sendToAll, setSendToAll] = useState(false);
+  const [message, setMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   const userId = localStorage.getItem('userId');
 
@@ -38,6 +47,76 @@ const Alerts = () => {
   useEffect(() => {
     fetchAlerts();
   }, [fetchAlerts]);
+
+  // Fetch doctors linked to hospital
+  const fetchDoctors = useCallback(async () => {
+    try {
+      const response = await axiosInstance.post('/doctor/list', {
+        hospital_id: parseInt(userId), // Filter by current hospital
+        page: 1,
+        limit: 1000
+      });
+      if (response.data.status === 'success') {
+        setDoctors(response.data.doctors || []);
+      }
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    }
+  }, [userId]);
+
+  // Open message modal and fetch doctors
+  const openMessageModal = () => {
+    setShowMessageModal(true);
+    fetchDoctors();
+  };
+
+  // Handle doctor selection
+  const toggleDoctorSelection = (doctorId) => {
+    setSelectedDoctors(prev => {
+      if (prev.includes(doctorId)) {
+        return prev.filter(id => id !== doctorId);
+      } else {
+        return [...prev, doctorId];
+      }
+    });
+  };
+
+  // Send message to doctors
+  const sendMessageToDoctors = async () => {
+    if (!message.trim()) {
+      alert('Please enter a message');
+      return;
+    }
+
+    if (!sendToAll && selectedDoctors.length === 0) {
+      alert('Please select at least one doctor');
+      return;
+    }
+
+    setSendingMessage(true);
+    try {
+      const response = await axiosInstance.post('/hospital/send-message', {
+        hospital_id: parseInt(userId),
+        doctor_ids: sendToAll ? 'all' : selectedDoctors,
+        message: message
+      });
+
+      if (response.data.status === 'success') {
+        alert(`Message sent to ${response.data.results.messages_sent} doctor(s). ${response.data.results.notifications_sent} notification(s) delivered.`);
+        setShowMessageModal(false);
+        setMessage('');
+        setSelectedDoctors([]);
+        setSendToAll(false);
+      } else {
+        alert(`Failed to send message: ${response.data.message}`);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('Error sending message. Please try again.');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
 
   // Filter alerts
   useEffect(() => {
@@ -219,6 +298,19 @@ const Alerts = () => {
             </GlassSurface>
           </div>
 
+          {/* Send Message Button */}
+          <div className="mb-6">
+            <button
+              onClick={openMessageModal}
+              className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              Send Message to Doctors
+            </button>
+          </div>
+
           {/* Alerts List */}
           <GlassSurface
             opacity={0.9}
@@ -298,6 +390,136 @@ const Alerts = () => {
           </GlassSurface>
         </main>
       </div>
+
+      {/* Message Modal */}
+      {showMessageModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <GlassSurface
+            opacity={0.95}
+            backgroundOpacity={0.15}
+            brightness={50}
+            blur={20}
+            borderRadius={20}
+            className="w-full max-w-2xl max-h-[90vh] overflow-auto"
+          >
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">Send Message to Doctors</h2>
+                <button
+                  onClick={() => {
+                    setShowMessageModal(false);
+                    setMessage('');
+                    setSelectedDoctors([]);
+                    setSendToAll(false);
+                  }}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60 hover:text-white"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Send to All Checkbox */}
+              <div className="mb-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sendToAll}
+                    onChange={(e) => {
+                      setSendToAll(e.target.checked);
+                      if (e.target.checked) {
+                        setSelectedDoctors([]);
+                      }
+                    }}
+                    className="w-5 h-5 rounded border-white/20 bg-white/10 checked:bg-blue-600"
+                  />
+                  <span className="text-white font-medium">Send to All Doctors</span>
+                </label>
+              </div>
+
+              {/* Doctor Selection */}
+              {!sendToAll && (
+                <div className="mb-6">
+                  <label className="block text-white/60 text-sm mb-2">Select Doctors:</label>
+                  <div className="max-h-48 overflow-y-auto space-y-2 bg-white/5 rounded-lg p-3">
+                    {doctors.length === 0 ? (
+                      <p className="text-white/40 text-sm text-center py-4">No doctors found</p>
+                    ) : (
+                      doctors.map((doctor) => (
+                        <label key={doctor.doctor_id} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white/5 rounded-lg transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={selectedDoctors.includes(doctor.doctor_id)}
+                            onChange={() => toggleDoctorSelection(doctor.doctor_id)}
+                            className="w-4 h-4 rounded border-white/20 bg-white/10 checked:bg-blue-600"
+                          />
+                          <div className="flex-1">
+                            <p className="text-white text-sm">{doctor.name || `${doctor.first_name} ${doctor.last_name || ''}`}</p>
+                            <p className="text-white/40 text-xs">{doctor.department}</p>
+                          </div>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {selectedDoctors.length > 0 && (
+                    <p className="text-blue-400 text-sm mt-2">{selectedDoctors.length} doctor(s) selected</p>
+                  )}
+                </div>
+              )}
+
+              {/* Message Input */}
+              <div className="mb-6">
+                <label className="block text-white/60 text-sm mb-2">Message:</label>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Type your message here..."
+                  rows={6}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
+                />
+                <p className="text-white/40 text-xs mt-1">{message.length} / 2000 characters</p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={sendMessageToDoctors}
+                  disabled={sendingMessage || !message.trim() || (!sendToAll && selectedDoctors.length === 0)}
+                  className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {sendingMessage ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      Send Message
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMessageModal(false);
+                    setMessage('');
+                    setSelectedDoctors([]);
+                    setSendToAll(false);
+                  }}
+                  disabled={sendingMessage}
+                  className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </GlassSurface>
+        </div>
+      )}
     </div>
   );
 };
