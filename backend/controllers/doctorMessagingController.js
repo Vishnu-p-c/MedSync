@@ -109,19 +109,54 @@ const getConversationMessages = async (req, res) => {
                          .sort({created_at: 1})
                          .lean();
 
-    // Format messages for response
-    const formattedMessages = messages.map(msg => ({
-                                             message_id: msg._id.toString(),
-                                             sender_id: msg.sender_id,
-                                             sender_role: msg.sender_role,
-                                             receiver_id: msg.receiver_id,
-                                             receiver_role: msg.receiver_role,
-                                             message_type: msg.message_type,
-                                             content: msg.content,
-                                             media_url: msg.media_url,
-                                             is_read: msg.is_read,
-                                             created_at: msg.created_at
-                                           }));
+    // Get sender names (hospitals and doctors)
+    const hospitalIds =
+        [...new Set(messages.filter(m => m.sender_role === 'hospital')
+                        .map(m => m.sender_id))];
+    const doctorIds = [
+      ...new Set(messages.filter(m => m.sender_role === 'doctor')
+                     .map(m => m.sender_id))
+    ];
+
+    const hospitals = await Hospital.find({hospital_id: {$in: hospitalIds}})
+                          .select('hospital_id name')
+                          .lean();
+    const doctors = await Doctor.find({doctor_id: {$in: doctorIds}})
+                        .select('doctor_id first_name last_name')
+                        .lean();
+
+    // Create lookup maps
+    const hospitalMap = {};
+    hospitals.forEach(h => {
+      hospitalMap[h.hospital_id] = h.name;
+    });
+
+    const doctorMap = {};
+    doctors.forEach(d => {
+      doctorMap[d.doctor_id] =
+          `${d.first_name} ${d.last_name || ''}`.trim();
+    });
+
+    // Format messages for Android app
+    const formattedMessages = messages.map(msg => {
+      let senderName = 'Unknown';
+      if (msg.sender_role === 'hospital') {
+        senderName = hospitalMap[msg.sender_id] || 'Unknown Hospital';
+      } else if (msg.sender_role === 'doctor') {
+        senderName = doctorMap[msg.sender_id] || 'Unknown Doctor';
+      }
+
+      return {
+        message_id: msg._id.toString(),
+        conversation_id: conversation_id,
+        sender_id: String(msg.sender_id),
+        sender_type: msg.sender_role,  // "hospital" or "doctor"
+        sender_name: senderName,
+        message: msg.content || '',  // Android expects "message" field
+        timestamp: msg.created_at,   // ISO 8601 format
+        is_read: msg.is_read || false
+      };
+    });
 
     return res.json({
       status: 'success',

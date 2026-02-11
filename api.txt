@@ -1528,30 +1528,32 @@ Success Response:
   "messages": [
     {
       "message_id": "65f3abc789...",
-      "sender_id": 5,
-      "sender_role": "hospital",
-      "receiver_id": 23,
-      "receiver_role": "doctor",
-      "message_type": "text",
-      "content": "Please report to ER immediately",
-      "media_url": null,
-      "is_read": false,
-      "created_at": "2026-02-12T10:30:00.000Z"
+      "conversation_id": "65f3abc123...",
+      "sender_id": "5",
+      "sender_type": "hospital",
+      "sender_name": "Cooperative Hospital Angamaly",
+      "message": "Please report to ER immediately",
+      "timestamp": "2026-02-12T10:30:00.000Z",
+      "is_read": false
     },
     {
       "message_id": "65f3abc790...",
-      "sender_id": 5,
-      "sender_role": "hospital",
-      "receiver_id": 23,
-      "receiver_role": "doctor",
-      "message_type": "text",
-      "content": "We have multiple critical cases",
-      "media_url": null,
-      "is_read": false,
-      "created_at": "2026-02-12T10:31:00.000Z"
+      "conversation_id": "65f3abc123...",
+      "sender_id": "5",
+      "sender_type": "hospital",
+      "sender_name": "Cooperative Hospital Angamaly",
+      "message": "We have multiple critical cases",
+      "timestamp": "2026-02-12T10:31:00.000Z",
+      "is_read": false
     }
   ]
 }
+
+Notes:
+- sender_type will be "hospital" or "doctor"
+- sender_name is automatically fetched from Hospital or Doctor collection
+- timestamp is in ISO 8601 format
+- Messages are sorted by created_at ascending (oldest first)
 
 Failure Responses:
 { "status": "fail", "message": "missing_field: conversation_id" }
