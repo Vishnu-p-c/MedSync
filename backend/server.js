@@ -18,6 +18,7 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const alertsRoutes = require('./routes/alertsRoutes');
 const chatbotRoutes = require('./routes/chatbot');
 const configRoutes = require('./routes/config');
+const messagesRoutes = require('./routes/messages');
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use('/settings', settingsRoutes);
 app.use('/alerts', alertsRoutes);
 app.use('/app', chatbotRoutes);
 app.use('/config', configRoutes);
+app.use('/messages', messagesRoutes);
 // app.use("/api/doctors", require("./routes/doctorRoutes"));
 
 app.listen(5000, () => console.log('Server running on port 5000'));
