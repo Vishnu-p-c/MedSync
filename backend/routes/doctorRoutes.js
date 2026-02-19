@@ -16,6 +16,9 @@ const {
 const {getDoctorConversations, getConversationMessages, markMessagesAsRead} =
     require('../controllers/doctorMessagingController');
 
+const {doctorReplyMessage} =
+    require('../controllers/patientMessagingController');
+
 // Create a new appointment
 // POST /doctor/appointment
 router.post('/appointment', createAppointment);
@@ -60,5 +63,16 @@ router.post('/update-fcm-token', updateDoctorFcmToken);
 // Get all conversations for a doctor
 // GET /doctor/conversations?doctor_id=23&type=hospital_doctor
 router.get('/conversations', getDoctorConversations);
+
+// GET /doctor/conversations/:doctor_id - Get all conversations for a doctor
+// (path param)
+router.get('/conversations/:doctor_id', async (req, res) => {
+  // Forward to getDoctorConversations with doctor_id from params
+  req.query.doctor_id = req.params.doctor_id;
+  return getDoctorConversations(req, res);
+});
+
+// POST /doctor/reply-message - Doctor replies to patient conversation
+router.post('/reply-message', doctorReplyMessage);
 
 module.exports = router;

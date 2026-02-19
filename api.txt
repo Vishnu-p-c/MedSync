@@ -1635,6 +1635,305 @@ FCM Notification Payload:
 }
 
 ================================================================================
+10B. PATIENT → DOCTOR MESSAGING
+================================================================================
+
+Patient-to-Doctor messaging system where:
+- Only patients can initiate conversations
+- Doctors can only reply to existing conversations
+- Communication uses FCM push notifications (no polling)
+
+--------------------------------------------------------------------------------
+
+POST /patient/update-fcm-token
+--------------------------------------------------------------------------------
+Description: Update patient's FCM token for receiving push notifications.
+
+Request Body:
+{
+  "patient_id": number (required),
+  "fcm_token": "string" (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "fcm_token_updated",
+  "patient_id": 16,
+  "token_last_update": "2026-02-19T10:30:00.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["patient_id", "fcm_token"] }
+{ "status": "fail", "message": "patient_id_must_be_number" }
+{ "status": "fail", "message": "patient_not_found" }
+{ "status": "error", "message": "server_error" }
+
+--------------------------------------------------------------------------------
+
+POST /patient/start-conversation
+--------------------------------------------------------------------------------
+Description: Patient initiates a conversation with a doctor.
+             Creates conversation if not exists, otherwise uses existing.
+             Sends FCM notification to doctor.
+
+Request Body:
+{
+  "patient_id": number (required),
+  "doctor_id": number (required),
+  "message": "string" (required)
+}
+
+Example Request:
+{
+  "patient_id": 16,
+  "doctor_id": 23,
+  "message": "Hello doctor, I have a question about my prescription."
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "conversation_created",  // or "message_sent" if conversation exists
+  "conversation_id": "65f3abc123...",
+  "message_id": "65f3def456...",
+  "fcm_sent": true
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["patient_id", "doctor_id", "message"] }
+{ "status": "fail", "message": "patient_id_must_be_number" }
+{ "status": "fail", "message": "doctor_id_must_be_number" }
+{ "status": "fail", "message": "patient_not_found" }
+{ "status": "fail", "message": "doctor_not_found" }
+{ "status": "error", "message": "server_error" }
+
+FCM Notification to Doctor:
+{
+  "title": "New Patient Message",
+  "body": "You have a new message from John Doe",
+  "data": {
+    "type": "patient_message",
+    "conversation_id": "...",
+    "patient_id": "16",
+    "doctor_id": "23",
+    "patient_name": "John Doe"
+  },
+  "android": {
+    "priority": "high",
+    "notification": { "priority": "max" }
+  }
+}
+
+--------------------------------------------------------------------------------
+
+POST /doctor/reply-message
+--------------------------------------------------------------------------------
+Description: Doctor replies to an existing patient conversation.
+             Only works for patient_doctor type conversations.
+             Sends FCM notification to patient.
+
+Request Body:
+{
+  "doctor_id": number (required),
+  "conversation_id": "string" (required, MongoDB ObjectId),
+  "message": "string" (required)
+}
+
+Example Request:
+{
+  "doctor_id": 23,
+  "conversation_id": "65f3abc123...",
+  "message": "Hello, I've reviewed your case. Please take the medicine twice daily."
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "reply_sent",
+  "conversation_id": "65f3abc123...",
+  "message_id": "65f3ghi789...",
+  "fcm_sent": true
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["doctor_id", "conversation_id", "message"] }
+{ "status": "fail", "message": "doctor_id_must_be_number" }
+{ "status": "fail", "message": "conversation_not_found" }
+{ "status": "fail", "message": "invalid_conversation_type", "expected": "patient_doctor" }
+{ "status": "fail", "message": "doctor_not_in_conversation" }
+{ "status": "fail", "message": "patient_not_found" }
+{ "status": "fail", "message": "doctor_not_found" }
+{ "status": "error", "message": "server_error" }
+
+FCM Notification to Patient:
+{
+  "title": "Doctor Reply",
+  "body": "You have a new reply from Dr. Sarah Johnson",
+  "data": {
+    "type": "doctor_reply",
+    "conversation_id": "...",
+    "doctor_id": "23",
+    "patient_id": "16",
+    "doctor_name": "Dr. Sarah Johnson"
+  },
+  "android": {
+    "priority": "high",
+    "notification": { "priority": "max" }
+  }
+}
+
+--------------------------------------------------------------------------------
+
+GET /patient/conversations/:patient_id
+--------------------------------------------------------------------------------
+Description: Get all conversations for a patient (patient's inbox).
+
+Path Parameters:
+- patient_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "patient_id": 16,
+  "total_conversations": 2,
+  "conversations": [
+    {
+      "conversation_id": "65f3abc123...",
+      "type": "patient_doctor",
+      "doctor_id": 23,
+      "doctor_name": "Dr. Sarah Johnson",
+      "doctor_department": "Cardiology",
+      "last_message": "Please take the medicine twice daily",
+      "last_message_at": "2026-02-19T15:30:00.000Z",
+      "unread_count": 1,
+      "created_at": "2026-02-19T10:00:00.000Z"
+    }
+  ]
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_field: patient_id" }
+{ "status": "fail", "message": "patient_id_must_be_number" }
+{ "status": "fail", "message": "patient_not_found" }
+{ "status": "error", "message": "server_error" }
+
+--------------------------------------------------------------------------------
+
+GET /doctor/conversations/:doctor_id
+--------------------------------------------------------------------------------
+Description: Get all conversations for a doctor (doctor's inbox).
+             Returns both hospital_doctor and patient_doctor conversations.
+
+Path Parameters:
+- doctor_id: number (required)
+
+Query Parameters:
+- type: "hospital_doctor" | "patient_doctor" (optional, filter by type)
+
+Success Response:
+{
+  "status": "success",
+  "doctor_id": 23,
+  "total_conversations": 3,
+  "conversations": [
+    {
+      "conversation_id": "65f3abc123...",
+      "type": "patient_doctor",
+      "patient_id": 16,
+      "patient_name": "John Doe",
+      "last_message": "Hello doctor, I have a question",
+      "last_message_at": "2026-02-19T15:30:00.000Z",
+      "unread_count": 1,
+      "created_at": "2026-02-19T10:00:00.000Z"
+    },
+    {
+      "conversation_id": "65f3def456...",
+      "type": "hospital_doctor",
+      "hospital_id": 5,
+      "hospital_name": "City Hospital",
+      "last_message": "Please report to ER",
+      "last_message_at": "2026-02-19T14:00:00.000Z",
+      "unread_count": 0,
+      "created_at": "2026-02-18T09:00:00.000Z"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+
+GET /conversations/:conversation_id/messages
+--------------------------------------------------------------------------------
+Description: Get paginated messages for a conversation (chat screen).
+
+Path Parameters:
+- conversation_id: MongoDB ObjectId (required)
+
+Query Parameters:
+- user_id: number (required, to verify participant access)
+- page: number (optional, default: 1)
+- limit: number (optional, default: 20, max: 50)
+
+Success Response:
+{
+  "status": "success",
+  "conversation_id": "65f3abc123...",
+  "page": 1,
+  "limit": 20,
+  "total_messages": 45,
+  "total_pages": 3,
+  "has_next": true,
+  "has_prev": false,
+  "messages": [
+    {
+      "message_id": "65f3xyz999...",
+      "conversation_id": "65f3abc123...",
+      "sender_id": "23",
+      "sender_type": "doctor",
+      "sender_name": "Dr. Sarah Johnson",
+      "message": "Please take the medicine twice daily",
+      "timestamp": "2026-02-19T15:30:00.000Z",
+      "is_read": false
+    },
+    {
+      "message_id": "65f3xyz998...",
+      "conversation_id": "65f3abc123...",
+      "sender_id": "16",
+      "sender_type": "patient",
+      "sender_name": "John Doe",
+      "message": "Hello doctor, I have a question",
+      "timestamp": "2026-02-19T15:25:00.000Z",
+      "is_read": true
+    }
+  ]
+}
+
+Notes:
+- Messages are sorted by created_at DESC (newest first for pagination)
+- User must be a participant (doctor, patient, or hospital) to access messages
+
+Failure Responses:
+{ "status": "fail", "message": "missing_field: conversation_id" }
+{ "status": "fail", "message": "missing_field: user_id" }
+{ "status": "fail", "message": "user_id_must_be_number" }
+{ "status": "fail", "message": "conversation_not_found" }
+{ "status": "fail", "message": "not_conversation_participant" }
+{ "status": "error", "message": "server_error" }
+
+--------------------------------------------------------------------------------
+
+PATIENT-DOCTOR MESSAGING RULES
+--------------------------------------------------------------------------------
+1. Patient can INITIATE conversations with any doctor
+2. Doctor CANNOT initiate - can only REPLY to existing conversations
+3. No doctor-to-doctor messaging
+4. No polling - all real-time updates via FCM push
+5. Messages persist in MongoDB
+6. Conversation auto-created on first patient message
+7. Invalid FCM tokens are automatically cleared
+8. FCM priority is always HIGH for immediate delivery
+
+================================================================================
 11. APPOINTMENT BOOKING FLOW
 ================================================================================
 

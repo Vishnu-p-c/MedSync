@@ -17,13 +17,13 @@ const userSchema = new mongoose.Schema({
   phone: {type: String, required: true, maxLength: 20},
   date_of_birth: {type: Date, required: true},
   gender: {type: String, enum: ['male', 'female', 'other'], required: true},
-  address: {
-    type: String,
-    maxLength: 500,
-    default: null
-  },
+  address: {type: String, maxLength: 500, default: null},
   latitude: {type: Number},
   longitude: {type: Number},
+  // FCM token for push notifications (patient messages)
+  fcm_token: {type: String, default: null, trim: true},
+  // Last time FCM token was updated
+  token_last_update: {type: Date, default: null},
   created_at: {type: Date, default: Date.now},
   last_login: {type: Date, default: null}
 });

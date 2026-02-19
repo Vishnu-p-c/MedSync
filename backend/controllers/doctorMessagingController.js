@@ -2,6 +2,7 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Hospital = require('../models/Hospital');
 const Doctor = require('../models/Doctor');
+const User = require('../models/User');
 
 // GET /doctor/conversations - Get all conversations for a doctor
 const getDoctorConversations = async (req, res) => {
@@ -34,30 +35,53 @@ const getDoctorConversations = async (req, res) => {
     const conversations =
         await Conversation.find(query).sort({last_message_at: -1}).lean();
 
-    // Enrich with hospital names
-    const enrichedConversations =
-        await Promise.all(conversations.map(async (conv) => {
-          let hospitalName = 'Unknown Hospital';
+    // Collect IDs for batch lookup
+    const hospitalIds = [...new Set(
+        conversations.filter(c => c.hospital_id).map(c => c.hospital_id))];
+    const patientIds = [...new Set(
+        conversations.filter(c => c.patient_id).map(c => c.patient_id))];
 
-          if (conv.hospital_id) {
-            const hospital =
-                await Hospital.findOne({hospital_id: conv.hospital_id}).lean();
-            if (hospital) {
-              hospitalName = hospital.name;
-            }
-          }
+    // Batch fetch hospitals and patients
+    const hospitals = await Hospital.find({hospital_id: {$in: hospitalIds}})
+                          .select('hospital_id name')
+                          .lean();
+    const patients = await User.find({user_id: {$in: patientIds}})
+                         .select('user_id first_name last_name')
+                         .lean();
 
-          return {
-            conversation_id: conv._id.toString(),
-            type: conv.type,
-            hospital_id: conv.hospital_id,
-            hospital_name: hospitalName,
-            last_message: conv.last_message || '',
-            last_message_at: conv.last_message_at,
-            unread_count: conv.unread_count?.doctor || 0,
-            created_at: conv.created_at
-          };
-        }));
+    // Create lookup maps
+    const hospitalMap = {};
+    hospitals.forEach(h => {
+      hospitalMap[h.hospital_id] = h.name;
+    });
+
+    const patientMap = {};
+    patients.forEach(p => {
+      patientMap[p.user_id] = `${p.first_name} ${p.last_name || ''}`.trim();
+    });
+
+    // Enrich conversations
+    const enrichedConversations = conversations.map(conv => {
+      const base = {
+        conversation_id: conv._id.toString(),
+        type: conv.type,
+        last_message: conv.last_message || '',
+        last_message_at: conv.last_message_at,
+        unread_count: conv.unread_count?.doctor || 0,
+        created_at: conv.created_at
+      };
+
+      if (conv.type === 'hospital_doctor') {
+        base.hospital_id = conv.hospital_id;
+        base.hospital_name =
+            hospitalMap[conv.hospital_id] || 'Unknown Hospital';
+      } else if (conv.type === 'patient_doctor') {
+        base.patient_id = conv.patient_id;
+        base.patient_name = patientMap[conv.patient_id] || 'Unknown Patient';
+      }
+
+      return base;
+    });
 
     return res.json({
       status: 'success',
@@ -109,12 +133,15 @@ const getConversationMessages = async (req, res) => {
                          .sort({created_at: 1})
                          .lean();
 
-    // Get sender names (hospitals and doctors)
+    // Get sender names (hospitals, doctors, and patients)
     const hospitalIds =
         [...new Set(messages.filter(m => m.sender_role === 'hospital')
                         .map(m => m.sender_id))];
     const doctorIds =
         [...new Set(messages.filter(m => m.sender_role === 'doctor')
+                        .map(m => m.sender_id))];
+    const patientIds =
+        [...new Set(messages.filter(m => m.sender_role === 'patient')
                         .map(m => m.sender_id))];
 
     const hospitals = await Hospital.find({hospital_id: {$in: hospitalIds}})
@@ -123,6 +150,9 @@ const getConversationMessages = async (req, res) => {
     const doctors = await Doctor.find({doctor_id: {$in: doctorIds}})
                         .select('doctor_id first_name last_name')
                         .lean();
+    const patients = await User.find({user_id: {$in: patientIds}})
+                         .select('user_id first_name last_name')
+                         .lean();
 
     // Create lookup maps
     const hospitalMap = {};
@@ -132,7 +162,13 @@ const getConversationMessages = async (req, res) => {
 
     const doctorMap = {};
     doctors.forEach(d => {
-      doctorMap[d.doctor_id] = `${d.first_name} ${d.last_name || ''}`.trim();
+      doctorMap[d.doctor_id] =
+          `Dr. ${d.first_name} ${d.last_name || ''}`.trim();
+    });
+
+    const patientMap = {};
+    patients.forEach(p => {
+      patientMap[p.user_id] = `${p.first_name} ${p.last_name || ''}`.trim();
     });
 
     // Format messages for Android app
@@ -142,13 +178,15 @@ const getConversationMessages = async (req, res) => {
         senderName = hospitalMap[msg.sender_id] || 'Unknown Hospital';
       } else if (msg.sender_role === 'doctor') {
         senderName = doctorMap[msg.sender_id] || 'Unknown Doctor';
+      } else if (msg.sender_role === 'patient') {
+        senderName = patientMap[msg.sender_id] || 'Unknown Patient';
       }
 
       return {
         message_id: msg._id.toString(),
         conversation_id: conversation_id,
         sender_id: String(msg.sender_id),
-        sender_type: msg.sender_role,  // "hospital" or "doctor"
+        sender_type: msg.sender_role,  // "hospital", "doctor", or "patient"
         sender_name: senderName,
         message: msg.content || '',  // Android expects "message" field
         timestamp: msg.created_at,   // ISO 8601 format
