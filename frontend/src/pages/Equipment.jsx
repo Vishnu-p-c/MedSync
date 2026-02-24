@@ -16,66 +16,73 @@ const Equipment = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState({
+    equipment_name: '',
+    status: 'working'
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   // Fetch equipment data from API
-  useEffect(() => {
-    const fetchEquipment = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchEquipment = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Get admin_id from localStorage (user_id is same as admin_id)
-        const adminId = localStorage.getItem('userId');
-        
-        if (!adminId) {
-          setError('User not authenticated');
-          setLoading(false);
-          return;
-        }
-
-        // First, get the hospital_id for this admin
-        const hospitalRes = await axiosInstance.post('/hospital/admin_hospital', {
-          admin_id: Number(adminId)
-        });
-
-        if (hospitalRes.data.status !== 'success') {
-          setError('Error fetching hospital information');
-          setLoading(false);
-          return;
-        }
-
-        const hospitalId = hospitalRes.data.hospital_id;
-
-        // Now fetch all equipment for this hospital
-        const equipmentRes = await axiosInstance.post('/hospital/total_equipment', {
-          hospital_id: hospitalId,
-          admin_id: Number(adminId)
-        });
-
-        if (equipmentRes.data.status !== 'success') {
-          setError('Error fetching equipments');
-          setLoading(false);
-          return;
-        }
-
-        // Map API response to component format
-        const mappedEquipment = equipmentRes.data.equipment.map(item => ({
-          id: item.equipment_id,
-          name: item.name,
-          status: mapStatus(item.status),
-          lastChecked: new Date(item.last_checked)
-        }));
-
-        setEquipmentList(mappedEquipment);
+      // Get admin_id from localStorage (user_id is same as admin_id)
+      const adminId = localStorage.getItem('userId');
+      
+      if (!adminId) {
+        setError('User not authenticated');
         setLoading(false);
+        return;
+      }
 
-      } catch (err) {
-        console.error('Error fetching equipment:', err);
+      // First, get the hospital_id for this admin
+      const hospitalRes = await axiosInstance.post('/hospital/admin_hospital', {
+        admin_id: Number(adminId)
+      });
+
+      if (hospitalRes.data.status !== 'success') {
+        setError('Error fetching hospital information');
+        setLoading(false);
+        return;
+      }
+
+      const hospitalId = hospitalRes.data.hospital_id;
+
+      // Now fetch all equipment for this hospital
+      const equipmentRes = await axiosInstance.post('/hospital/total_equipment', {
+        hospital_id: hospitalId,
+        admin_id: Number(adminId)
+      });
+
+      if (equipmentRes.data.status !== 'success') {
         setError('Error fetching equipments');
         setLoading(false);
+        return;
       }
-    };
 
+      // Map API response to component format
+      const mappedEquipment = equipmentRes.data.equipment.map(item => ({
+        id: item.equipment_id,
+        name: item.name,
+        status: mapStatus(item.status),
+        lastChecked: new Date(item.last_checked)
+      }));
+
+      setEquipmentList(mappedEquipment);
+      setLoading(false);
+
+    } catch (err) {
+      console.error('Error fetching equipment:', err);
+      setError('Error fetching equipments');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchEquipment();
   }, []);
 
@@ -140,6 +147,65 @@ const Equipment = () => {
     'Out of Order': equipmentList.filter((e) => e.status === 'Out of Order').length,
   };
 
+  // Handle opening add modal
+  const handleOpenAddModal = () => {
+    setShowAddModal(true);
+    setFormData({ equipment_name: '', status: 'working' });
+    setSubmitError(null);
+  };
+
+  // Handle closing add modal
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setFormData({ equipment_name: '', status: 'working' });
+    setSubmitError(null);
+  };
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle form submission
+  const handleSubmitEquipment = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const adminId = localStorage.getItem('userId');
+      
+      if (!adminId) {
+        setSubmitError('User not authenticated');
+        setSubmitting(false);
+        return;
+      }
+
+      const response = await axiosInstance.post('/equipment/add', {
+        admin_id: Number(adminId),
+        equipment_name: formData.equipment_name,
+        status: formData.status
+      });
+
+      if (response.data.status === 'success') {
+        // Close modal and refresh equipment list
+        handleCloseAddModal();
+        fetchEquipment();
+      } else {
+        setSubmitError(response.data.message || 'Error adding equipment');
+      }
+    } catch (err) {
+      console.error('Error adding equipment:', err);
+      setSubmitError(err.response?.data?.message || 'Error adding equipment');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-[#030B12] overflow-x-hidden">
       <SideNav isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -167,7 +233,10 @@ const Equipment = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Equipment Status</h1>
               <p className="text-white/60 text-sm sm:text-base">Monitor and manage hospital equipment inventory</p>
             </div>
-            <button className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-white/90 rounded-full text-black font-semibold hover:bg-white active:scale-[0.98] transition-transform text-sm sm:text-base">
+            <button 
+              onClick={handleOpenAddModal}
+              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-white/90 rounded-full text-black font-semibold hover:bg-white active:scale-[0.98] transition-transform text-sm sm:text-base"
+            >
               <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
@@ -404,6 +473,103 @@ const Equipment = () => {
         </GlassSurface>
         </div>
       </main>
+
+      {/* Add Equipment Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <GlassSurface
+            opacity={0.95}
+            backgroundOpacity={0.15}
+            brightness={60}
+            blur={15}
+            borderRadius={20}
+            className="w-full max-w-md p-6 sm:p-8"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Add Equipment</h2>
+              <button
+                onClick={handleCloseAddModal}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitEquipment} className="space-y-4">
+              {/* Equipment Name */}
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-2">
+                  Equipment Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="equipment_name"
+                  value={formData.equipment_name}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="e.g., Ventilator, ECG Monitor"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-white/40 transition-colors"
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-2">
+                  Status <span className="text-red-400">*</span>
+                </label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-white/40 transition-colors"
+                >
+                  <option value="working" className="bg-gray-800">Working</option>
+                  <option value="maintenance" className="bg-gray-800">Maintenance</option>
+                  <option value="down" className="bg-gray-800">Out of Order</option>
+                </select>
+              </div>
+
+              {/* Error Message */}
+              {submitError && (
+                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                  {submitError}
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseAddModal}
+                  disabled={submitting}
+                  className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 rounded-lg text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-3 bg-white/90 hover:bg-white rounded-lg text-black font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Equipment'
+                  )}
+                </button>
+              </div>
+            </form>
+          </GlassSurface>
+        </div>
+      )}
     </div>
   );
 };
