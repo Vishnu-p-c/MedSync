@@ -1333,6 +1333,16 @@ Description: Get list of all registered hospitals.
 
 Request Body: None (GET request)
 
+Query Parameters (optional):
+{
+  "latitude": number,
+  "longitude": number
+}
+
+Notes:
+- If both latitude and longitude are provided, returns only hospitals within 25km radius
+- If latitude/longitude are not provided, returns all hospitals (default behavior)
+
 Success Response:
 {
   "status": "success",
@@ -1348,6 +1358,10 @@ Success Response:
     }
   ]
 }
+
+Failure Responses:
+{ "status": "fail", "message": "latitude_and_longitude_must_be_provided_together" }
+{ "status": "fail", "message": "latitude_and_longitude_must_be_numbers" }
 
 --------------------------------------------------------------------------------
 

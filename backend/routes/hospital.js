@@ -8,6 +8,17 @@ const bcrypt = require('bcryptjs');
 const DoctorDetails = require('../models/Doctor');
 const {sendMessageToDoctor} = require('../controllers/hospitalController');
 
+const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 const randomMorningTimeToday = () => {
   const now = new Date();
   const start = new Date(now);
@@ -392,7 +403,45 @@ router.post('/clinic/register', async (req, res) => {
 // Returns all hospitals
 router.get('/list', async (req, res) => {
   try {
-    const hospitals = await Hospital.find({}).lean();
+    const {latitude, longitude} = req.query;
+    const hasLatitude = latitude !== undefined;
+    const hasLongitude = longitude !== undefined;
+
+    if (hasLatitude !== hasLongitude) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'latitude_and_longitude_must_be_provided_together'
+      });
+    }
+
+    let hospitals = await Hospital.find({}).lean();
+
+    if (hasLatitude && hasLongitude) {
+      const latitudeNum = Number(latitude);
+      const longitudeNum = Number(longitude);
+
+      if (isNaN(latitudeNum) || isNaN(longitudeNum)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'latitude_and_longitude_must_be_numbers'
+        });
+      }
+
+      const radiusKm = 25;
+      hospitals = hospitals.filter(hospital => {
+        if (hospital.latitude === null || hospital.longitude === null ||
+            hospital.latitude === undefined ||
+            hospital.longitude === undefined) {
+          return false;
+        }
+
+        const distanceKm = calculateDistanceKm(
+            latitudeNum, longitudeNum, Number(hospital.latitude),
+            Number(hospital.longitude));
+
+        return !isNaN(distanceKm) && distanceKm <= radiusKm;
+      });
+    }
 
     return res.json({
       status: 'success',
