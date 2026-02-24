@@ -19,7 +19,7 @@ const appointmentSchema = new mongoose.Schema({
   token_number: {type: Number, default: null},
   status: {
     type: String,
-    enum: ['upcoming', 'cancelled', 'completed'],
+    enum: ['upcoming', 'cancelled', 'completed', 'expired'],
     default: 'upcoming'
   },
   created_at: {type: Date, default: Date.now}
