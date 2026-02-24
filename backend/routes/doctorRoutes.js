@@ -10,7 +10,9 @@ const {
   getDoctorSlots,
   bookAppointment,
   getDoctorWaitingQueue,
-  updateDoctorFcmToken
+  updateDoctorFcmToken,
+  getAppointmentHistory,
+  cancelAppointment
 } = require('../controllers/doctorController');
 
 const {getDoctorConversations, getConversationMessages, markMessagesAsRead} =
@@ -34,6 +36,14 @@ router.post('/appointment/patient', getPatientAppointments);
 // Get all appointments for a doctor (verifies user is a doctor first)
 // POST /doctor/appointment/doctor
 router.post('/appointment/doctor', getDoctorAppointments);
+
+// Get appointment history for a patient (past and future)
+// POST /doctor/appointment/history
+router.post('/appointment/history', getAppointmentHistory);
+
+// Cancel an appointment
+// POST /doctor/appointment/cancel
+router.post('/appointment/cancel', cancelAppointment);
 
 // Get paginated list of doctors with filters and location-based sorting
 // POST /doctor/list

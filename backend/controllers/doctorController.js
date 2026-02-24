@@ -24,6 +24,25 @@ const getNextAppointmentId = async () => {
   return lastAppointment ? lastAppointment.appointment_id + 1 : 1;
 };
 
+// Helper function to update expired appointments automatically
+const updateExpiredAppointments = async (patient_id = null) => {
+  try {
+    const now = new Date();
+    const filter = {status: 'upcoming', appointment_time: {$lt: now}};
+
+    // If patient_id provided, only update that patient's appointments
+    if (patient_id) {
+      filter.patient_id = patient_id;
+    }
+
+    // Update all upcoming appointments that are past their time to 'expired'
+    await Appointment.updateMany(filter, {status: 'expired'});
+
+  } catch (error) {
+    console.error('Error updating expired appointments:', error);
+  }
+};
+
 // POST /doctor/appointment - Create a new appointment
 const createAppointment = async (req, res) => {
   try {
@@ -136,6 +155,9 @@ const getPatientAppointments = async (req, res) => {
       return res.json({status: 'fail', message: 'user_not_found'});
     }
 
+    // Update expired appointments first
+    await updateExpiredAppointments(user_id);
+
     // Get all upcoming appointments for this patient
     const appointments = await Appointment
                              .find({
@@ -216,6 +238,9 @@ const getDoctorAppointments = async (req, res) => {
     if (!doctor) {
       return res.json({status: 'fail', message: 'doctor_details_not_found'});
     }
+
+    // Update all expired appointments
+    await updateExpiredAppointments();
 
     // Get all appointments for this doctor
     const appointments =
@@ -1237,6 +1262,198 @@ const updateDoctorFcmToken = async (req, res) => {
   }
 };
 
+// POST /doctor/appointment/history - Get appointment history for a patient
+const getAppointmentHistory = async (req, res) => {
+  try {
+    const {user_id} = req.body;
+
+    // Validate required field
+    if (!user_id) {
+      return res.json(
+          {status: 'fail', message: 'missing_fields', missing: ['user_id']});
+    }
+
+    // Validate user_id is a number
+    const userIdNum = parseInt(user_id);
+    if (isNaN(userIdNum)) {
+      return res.json({status: 'fail', message: 'user_id_must_be_number'});
+    }
+
+    // Verify user exists
+    const user = await User.findOne({user_id: userIdNum});
+    if (!user) {
+      return res.json({status: 'fail', message: 'user_not_found'});
+    }
+
+    // Verify user is a patient
+    if (user.role !== 'patient') {
+      return res.json({status: 'fail', message: 'user_is_not_a_patient'});
+    }
+
+    // First, update any expired appointments for this patient
+    await updateExpiredAppointments(userIdNum);
+
+    // Get all appointments for this patient
+    const allAppointments =
+        await Appointment.find({patient_id: userIdNum}).sort({
+          appointment_time: -1
+        });  // Most recent first
+
+    // Fetch details for each appointment
+    const appointmentsWithDetails =
+        await Promise.all(allAppointments.map(async (apt) => {
+          const doctor = await Doctor.findOne({doctor_id: apt.doctor_id});
+
+          // Fetch hospital name if hospital_id exists
+          let hospital_name = null;
+          if (apt.hospital_id) {
+            const hospital =
+                await Hospital.findOne({hospital_id: apt.hospital_id});
+            hospital_name = hospital ? hospital.name : null;
+          }
+
+          return {
+            appointment_id: apt.appointment_id,
+            doctor_id: apt.doctor_id,
+            doctor_name: doctor ?
+                `${doctor.first_name} ${doctor.last_name || ''}`.trim() :
+                'Unknown',
+            department: doctor ? doctor.department : 'Unknown',
+            hospital_id: apt.hospital_id,
+            hospital_name: hospital_name,
+            clinic_id: apt.clinic_id,
+            consultation_place: apt.consultation_place,
+            clinic_name: apt.clinic_name,
+            appointment_time: apt.appointment_time,
+            token_number: apt.token_number,
+            status: apt.status,
+            created_at: apt.created_at
+          };
+        }));
+
+    // Separate into expired and upcoming
+    const expiredAppointments = appointmentsWithDetails.filter(
+        apt => apt.status === 'expired' || apt.status === 'cancelled' ||
+            apt.status === 'completed');
+    const upcomingAppointments =
+        appointmentsWithDetails.filter(apt => apt.status === 'upcoming');
+
+    return res.json({
+      status: 'success',
+      total_appointments: appointmentsWithDetails.length,
+      expired_count: expiredAppointments.length,
+      upcoming_count: upcomingAppointments.length,
+      expired: expiredAppointments,
+      upcoming: upcomingAppointments
+    });
+
+  } catch (error) {
+    console.error('Get appointment history error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
+// POST /doctor/appointment/cancel - Cancel an appointment
+const cancelAppointment = async (req, res) => {
+  try {
+    const {appointment_id, patient_id, doctor_id} = req.body;
+
+    // Validate required fields
+    const missing = [];
+    if (!appointment_id) missing.push('appointment_id');
+
+    // Either patient_id or doctor_id must be provided
+    if (!patient_id && !doctor_id) {
+      return res.json(
+          {status: 'fail', message: 'either_patient_id_or_doctor_id_required'});
+    }
+
+    if (missing.length > 0) {
+      return res.json({status: 'fail', message: 'missing_fields', missing});
+    }
+
+    // Validate IDs are numbers
+    const appointmentIdNum = parseInt(appointment_id);
+    if (isNaN(appointmentIdNum)) {
+      return res.json(
+          {status: 'fail', message: 'appointment_id_must_be_number'});
+    }
+
+    // Find the appointment
+    const appointment =
+        await Appointment.findOne({appointment_id: appointmentIdNum});
+    if (!appointment) {
+      return res.json({status: 'fail', message: 'appointment_not_found'});
+    }
+
+    // Verify either patient_id or doctor_id matches
+    let isAuthorized = false;
+    let cancelledBy = null;
+
+    if (patient_id) {
+      const patientIdNum = parseInt(patient_id);
+      if (isNaN(patientIdNum)) {
+        return res.json({status: 'fail', message: 'patient_id_must_be_number'});
+      }
+      if (appointment.patient_id === patientIdNum) {
+        isAuthorized = true;
+        cancelledBy = 'patient';
+      }
+    }
+
+    if (!isAuthorized && doctor_id) {
+      const doctorIdNum = parseInt(doctor_id);
+      if (isNaN(doctorIdNum)) {
+        return res.json({status: 'fail', message: 'doctor_id_must_be_number'});
+      }
+      if (appointment.doctor_id === doctorIdNum) {
+        isAuthorized = true;
+        cancelledBy = 'doctor';
+      }
+    }
+
+    if (!isAuthorized) {
+      return res.json({
+        status: 'fail',
+        message: 'unauthorized_cancellation',
+        details: 'patient_id or doctor_id does not match appointment'
+      });
+    }
+
+    // Check if appointment can be cancelled
+    if (appointment.status === 'cancelled') {
+      return res.json(
+          {status: 'fail', message: 'appointment_already_cancelled'});
+    }
+
+    if (appointment.status === 'completed') {
+      return res.json(
+          {status: 'fail', message: 'cannot_cancel_completed_appointment'});
+    }
+
+    if (appointment.status === 'expired') {
+      return res.json(
+          {status: 'fail', message: 'cannot_cancel_expired_appointment'});
+    }
+
+    // Update status to cancelled
+    appointment.status = 'cancelled';
+    await appointment.save();
+
+    return res.json({
+      status: 'success',
+      message: 'appointment_cancelled',
+      appointment_id: appointment.appointment_id,
+      cancelled_by: cancelledBy,
+      appointment_time: appointment.appointment_time
+    });
+
+  } catch (error) {
+    console.error('Cancel appointment error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
 module.exports = {
   createAppointment,
   getPatientAppointments,
@@ -1247,5 +1464,7 @@ module.exports = {
   getDoctorSlots,
   bookAppointment,
   getDoctorWaitingQueue,
-  updateDoctorFcmToken
+  updateDoctorFcmToken,
+  getAppointmentHistory,
+  cancelAppointment
 };
