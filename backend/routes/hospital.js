@@ -769,22 +769,26 @@ router.post('/attendence-unmark', async (req, res) => {
     doctor.current_hospital_id = null;
 
     // Update hospital_attendance map to mark this hospital as unavailable
-    const attendanceMap = doctor.hospital_attendance || {};
     const hospitalKey = String(hospitalIdNum);
-    if (attendanceMap[hospitalKey] || attendanceMap.get?.(hospitalKey)) {
-      if (attendanceMap.set) {
-        // Map type
-        const existing = attendanceMap.get(hospitalKey) || {};
-        attendanceMap.set(hospitalKey, {...existing, is_available: false});
-      } else {
-        // Object type
-        attendanceMap[hospitalKey] = {
-          ...(attendanceMap[hospitalKey] || {}),
-          is_available: false
-        };
+    if (doctor.hospital_attendance instanceof Map) {
+      const existing = doctor.hospital_attendance.get(hospitalKey) || {};
+      doctor.hospital_attendance.set(hospitalKey, {
+        ...existing,
+        is_available: false,
+        last_marked_at: existing.last_marked_at || new Date()
+      });
+    } else {
+      if (!doctor.hospital_attendance) {
+        doctor.hospital_attendance = {};
       }
-      doctor.hospital_attendance = attendanceMap;
+      const existing = doctor.hospital_attendance[hospitalKey] || {};
+      doctor.hospital_attendance[hospitalKey] = {
+        ...existing,
+        is_available: false,
+        last_marked_at: existing.last_marked_at || new Date()
+      };
     }
+    doctor.markModified('hospital_attendance');
 
     await doctor.save();
 

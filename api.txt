@@ -3412,15 +3412,17 @@ Success Response:
 Failure Responses:
 { "status": "fail", "message": "missing_fields", "missing": ["doctor_id"] }
 { "status": "fail", "message": "missing_fields", "missing": ["hospital_id"] }
-{ "status": "fail", "message": "doctor_id_must_be_number" }
-{ "status": "fail", "message": "hospital_id_must_be_number" }
+{ "status": "fail", "message": "ids_must_be_numbers" }
 { "status": "fail", "message": "doctor_not_found" }
 { "status": "fail", "message": "doctor_not_assigned_to_hospital" }
 
 Notes:
-  - Sets `is_available` to false in the doctor's record
+  - Sets top-level `is_available` to false in the doctor's record
   - Sets `current_hospital_id` to null
-  - Updates the `hospital_attendance` map to mark the hospital as unavailable
+  - Updates `hospital_attendance.{hospital_id}.is_available` to false in the Map
+  - The `hospital_attendance` Map is the per-hospital availability source of truth
+    (used by the attendence-status endpoint to report per-hospital availability)
+  - Uses `markModified('hospital_attendance')` to ensure Mongoose persists Map changes
   - Used when doctor completes their shift or leaves the hospital
   - Counterpart to POST /hospital/attendence-mark (check-in vs check-out)
   - Does not require NFC or password validation (unlike attendence-mark)
