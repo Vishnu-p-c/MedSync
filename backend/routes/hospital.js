@@ -770,23 +770,19 @@ router.post('/attendence-unmark', async (req, res) => {
 
     // Update hospital_attendance map to mark this hospital as unavailable
     const hospitalKey = String(hospitalIdNum);
-    if (doctor.hospital_attendance instanceof Map) {
-      const existing = doctor.hospital_attendance.get(hospitalKey) || {};
-      doctor.hospital_attendance.set(hospitalKey, {
-        ...existing,
-        is_available: false,
-        last_marked_at: existing.last_marked_at || new Date()
-      });
+    const existing = doctor.hospital_attendance &&
+        doctor.hospital_attendance.get(hospitalKey);
+
+    if (existing) {
+      // Directly mutate the subdocument — do NOT spread Mongoose subdocs
+      existing.is_available = false;
     } else {
+      // Entry doesn't exist yet; create it
       if (!doctor.hospital_attendance) {
-        doctor.hospital_attendance = {};
+        doctor.hospital_attendance = new Map();
       }
-      const existing = doctor.hospital_attendance[hospitalKey] || {};
-      doctor.hospital_attendance[hospitalKey] = {
-        ...existing,
-        is_available: false,
-        last_marked_at: existing.last_marked_at || new Date()
-      };
+      doctor.hospital_attendance.set(
+          hospitalKey, {is_available: false, last_marked_at: new Date()});
     }
     doctor.markModified('hospital_attendance');
 
