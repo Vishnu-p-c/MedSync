@@ -719,6 +719,82 @@ router.post('/attendence-status', async (req, res) => {
   }
 });
 
+// POST /hospital/attendence-unmark
+// Body: { doctor_id: Number, hospital_id: Number }
+// Marks doctor as unavailable (sets is_available to false)
+router.post('/attendence-unmark', async (req, res) => {
+  try {
+    const {doctor_id, hospital_id} = req.body;
+
+    const missing = [];
+    if (doctor_id === undefined || doctor_id === null)
+      missing.push('doctor_id');
+    if (hospital_id === undefined || hospital_id === null)
+      missing.push('hospital_id');
+
+    if (missing.length) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_fields', missing});
+    }
+
+    const doctorIdNum = Number(doctor_id);
+    const hospitalIdNum = Number(hospital_id);
+    if (isNaN(doctorIdNum) || isNaN(hospitalIdNum)) {
+      return res.status(400).json(
+          {status: 'fail', message: 'ids_must_be_numbers'});
+    }
+
+    const doctor = await DoctorDetails.findOne({doctor_id: doctorIdNum});
+    if (!doctor) {
+      return res.status(404).json(
+          {status: 'fail', message: 'doctor_not_found'});
+    }
+
+    const consultHospitals =
+        Array.isArray(doctor.hospital_id) ? doctor.hospital_id : [];
+    if (!consultHospitals.includes(hospitalIdNum)) {
+      return res.status(403).json(
+          {status: 'fail', message: 'doctor_not_assigned_to_hospital'});
+    }
+
+    // Set doctor as unavailable
+    doctor.is_available = false;
+    doctor.current_hospital_id = null;
+
+    // Update hospital_attendance map to mark this hospital as unavailable
+    const attendanceMap = doctor.hospital_attendance || {};
+    const hospitalKey = String(hospitalIdNum);
+    if (attendanceMap[hospitalKey] || attendanceMap.get?.(hospitalKey)) {
+      if (attendanceMap.set) {
+        // Map type
+        const existing = attendanceMap.get(hospitalKey) || {};
+        attendanceMap.set(hospitalKey, {...existing, is_available: false});
+      } else {
+        // Object type
+        attendanceMap[hospitalKey] = {
+          ...(attendanceMap[hospitalKey] || {}),
+          is_available: false
+        };
+      }
+      doctor.hospital_attendance = attendanceMap;
+    }
+
+    await doctor.save();
+
+    return res.json({
+      status: 'success',
+      message: 'doctor_marked_unavailable',
+      doctor_id: doctorIdNum,
+      hospital_id: hospitalIdNum,
+      marked_at: new Date()
+    });
+
+  } catch (err) {
+    console.error('Error in /hospital/attendence-unmark:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
 // POST /hospital/send-message
 // Body: { hospital_id, doctor_ids, message }
 // Send message from hospital to doctor(s)

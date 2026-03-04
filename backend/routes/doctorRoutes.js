@@ -12,7 +12,8 @@ const {
   getDoctorWaitingQueue,
   updateDoctorFcmToken,
   getAppointmentHistory,
-  cancelAppointment
+  cancelAppointment,
+  getAllDoctorSchedules
 } = require('../controllers/doctorController');
 
 const {getDoctorConversations, getConversationMessages, markMessagesAsRead} =
@@ -65,6 +66,10 @@ router.get('/:doctor_id/slots', getDoctorSlots);
 // Get doctor's waiting queue for today
 // POST /doctor/waiting-queue
 router.post('/waiting-queue', getDoctorWaitingQueue);
+
+// Get all schedules for a doctor across all locations
+// POST /doctor/all-schedules
+router.post('/all-schedules', getAllDoctorSchedules);
 
 // Update doctor's FCM token for push notifications
 // POST /doctor/update-fcm-token
