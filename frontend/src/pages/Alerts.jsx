@@ -811,9 +811,9 @@ const Alerts = () => {
             brightness={50}
             blur={20}
             borderRadius={20}
-            className="w-full max-w-2xl max-h-[90vh] overflow-auto"
+            className="w-full max-w-2xl max-h-[90vh] flex flex-col"
           >
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
               {/* Modal Header */}
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-2">
