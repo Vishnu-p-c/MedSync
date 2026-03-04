@@ -1495,6 +1495,19 @@ const getAllDoctorSchedules = async (req, res) => {
     }
 
     // Process all schedules
+    const dayOrder = {
+      monday: 0,
+      tuesday: 1,
+      wednesday: 2,
+      thursday: 3,
+      friday: 4,
+      saturday: 5,
+      sunday: 6
+    };
+    const sortByDay = (a, b) =>
+        (dayOrder[a.day] ?? 99) - (dayOrder[b.day] ?? 99);
+    const sortDayNames = (a, b) => (dayOrder[a] ?? 99) - (dayOrder[b] ?? 99);
+
     const schedules = [];
 
     // Process hospital schedules
@@ -1502,6 +1515,7 @@ const getAllDoctorSchedules = async (req, res) => {
       for (const [hospitalId, hospitalSchedule] of schedule.hospital_schedule) {
         const hospital =
             await Hospital.findOne({hospital_id: parseInt(hospitalId)});
+        const sortedSlots = [...hospitalSchedule.slots].sort(sortByDay);
 
         schedules.push({
           location_type: 'hospital',
@@ -1509,8 +1523,9 @@ const getAllDoctorSchedules = async (req, res) => {
           location_name: hospital ? hospital.name :
                                     hospitalSchedule.location_name,
           location_address: hospital ? hospital.address : null,
-          weekly_schedule: hospitalSchedule.slots,
-          available_days: [...new Set(hospitalSchedule.slots.map(s => s.day))]
+          weekly_schedule: sortedSlots,
+          available_days:
+              [...new Set(sortedSlots.map(s => s.day))].sort(sortDayNames)
         });
       }
     }
@@ -1519,14 +1534,16 @@ const getAllDoctorSchedules = async (req, res) => {
     if (schedule.clinic_schedule && schedule.clinic_schedule.size > 0) {
       for (const [clinicId, clinicSchedule] of schedule.clinic_schedule) {
         const clinic = await Clinic.findOne({clinic_id: parseInt(clinicId)});
+        const sortedSlots = [...clinicSchedule.slots].sort(sortByDay);
 
         schedules.push({
           location_type: 'clinic',
           location_id: parseInt(clinicId),
           location_name: clinic ? clinic.name : clinicSchedule.location_name,
           location_address: clinic ? clinic.address : null,
-          weekly_schedule: clinicSchedule.slots,
-          available_days: [...new Set(clinicSchedule.slots.map(s => s.day))]
+          weekly_schedule: sortedSlots,
+          available_days:
+              [...new Set(sortedSlots.map(s => s.day))].sort(sortDayNames)
         });
       }
     }
