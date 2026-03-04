@@ -64,6 +64,12 @@
 .glass-surface > .glass-surface__content {
   position: relative;
   z-index: 1;
+  display: inherit;
+  flex-direction: inherit;
+  flex: 1;
+  min-height: 0;
+  max-height: inherit;
+  overflow: inherit;
 }
 
 @media (prefers-reduced-motion: reduce) {
