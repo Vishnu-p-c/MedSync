@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import SideNav from '../components/SideNav';
 import GlassSurface from '../components/GlassSurface/GlassSurface';
 import axiosInstance from '../utils/axiosInstance';
@@ -23,6 +24,9 @@ const Equipment = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const [updatingStatus, setUpdatingStatus] = useState(null);
 
   // Fetch equipment data from API
   const fetchEquipment = async () => {
@@ -205,6 +209,62 @@ const Equipment = () => {
       setSubmitting(false);
     }
   };
+
+  // Reverse map: frontend display status -> backend status
+  const reverseMapStatus = (displayStatus) => {
+    switch (displayStatus) {
+      case 'Available': return 'working';
+      case 'Maintenance': return 'maintenance';
+      case 'Out of Order': return 'down';
+      case 'In Use': return 'in_use';
+      default: return 'working';
+    }
+  };
+
+  // Status options for the dropdown (display label -> backend value)
+  const statusOptions = [
+    { label: 'Available', value: 'working', color: 'text-green-400' },
+    { label: 'Maintenance', value: 'maintenance', color: 'text-yellow-400' },
+    { label: 'Out of Order', value: 'down', color: 'text-red-400' },
+  ];
+
+  // Handle status change
+  const handleStatusChange = async (equipmentId, newBackendStatus) => {
+    setUpdatingStatus(equipmentId);
+    setOpenMenuId(null);
+    try {
+      const adminId = localStorage.getItem('userId');
+      if (!adminId) return;
+
+      const response = await axiosInstance.post('/equipment/update-status', {
+        admin_id: Number(adminId),
+        equipment_id: equipmentId,
+        status: newBackendStatus
+      });
+
+      if (response.data.status === 'success') {
+        // Update local state immediately
+        setEquipmentList(prev => prev.map(item =>
+          item.id === equipmentId
+            ? { ...item, status: mapStatus(newBackendStatus), lastChecked: new Date() }
+            : item
+        ));
+      }
+    } catch (err) {
+      console.error('Error updating equipment status:', err);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId !== null) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
 
   return (
     <div className="min-h-screen w-full bg-[#030B12] overflow-x-hidden">
@@ -428,21 +488,45 @@ const Equipment = () => {
                         </td>
                         <td className="p-3 sm:p-4 text-white/60 text-sm sm:text-base">{formatDate(item.lastChecked)}</td>
                         <td className="p-3 sm:p-4 text-right">
-                          <button className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60 hover:text-white">
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
+                          <div className="relative inline-block">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (openMenuId === item.id) {
+                                  setOpenMenuId(null);
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  // Check if dropdown would go below viewport
+                                  const spaceBelow = window.innerHeight - rect.bottom;
+                                  const menuHeight = 160; // approximate dropdown height
+                                  setMenuPos({
+                                    top: spaceBelow < menuHeight ? rect.top - menuHeight : rect.bottom + 4,
+                                    right: window.innerWidth - rect.right,
+                                  });
+                                  setOpenMenuId(item.id);
+                                }
+                              }}
+                              className={`p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60 hover:text-white ${
+                                updatingStatus === item.id ? 'animate-pulse' : ''
+                              }`}
+                              disabled={updatingStatus === item.id}
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                              />
-                            </svg>
-                          </button>
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                                />
+                              </svg>
+                            </button>
+
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -473,6 +557,52 @@ const Equipment = () => {
         </GlassSurface>
         </div>
       </main>
+
+      {/* Status change dropdown - rendered as portal to avoid overflow clipping */}
+      {openMenuId !== null && createPortal(
+        <div
+          className="fixed inset-0 z-[9999]"
+          onClick={() => setOpenMenuId(null)}
+        >
+          <div
+            className="fixed w-48 bg-[#0a1929]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+            style={{ top: menuPos.top, right: menuPos.right }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-3 py-2 border-b border-white/10">
+              <p className="text-white/40 text-xs font-medium uppercase tracking-wider">Change Status</p>
+            </div>
+            {statusOptions.map((opt) => {
+              const currentItem = equipmentList.find(eq => eq.id === openMenuId);
+              const isCurrent = currentItem?.status === opt.label;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => handleStatusChange(openMenuId, opt.value)}
+                  disabled={isCurrent}
+                  className={`w-full text-left px-3 py-2.5 text-sm transition-colors flex items-center gap-2 ${
+                    isCurrent
+                      ? 'bg-white/5 text-white/30 cursor-default'
+                      : 'hover:bg-white/10 text-white'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${
+                    opt.value === 'working' ? 'bg-green-400' :
+                    opt.value === 'maintenance' ? 'bg-yellow-400' : 'bg-red-400'
+                  }`}></span>
+                  <span>{opt.label}</span>
+                  {isCurrent && (
+                    <svg className="w-4 h-4 ml-auto text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Add Equipment Modal */}
       {showAddModal && (
