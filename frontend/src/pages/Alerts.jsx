@@ -22,6 +22,23 @@ const Alerts = () => {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [hospitalId, setHospitalId] = useState(null);
 
+  // Hospital message modal state
+  const [showHospitalModal, setShowHospitalModal] = useState(false);
+  const [hospitals, setHospitals] = useState([]);
+  const [selectedHospitals, setSelectedHospitals] = useState([]);
+  const [sendToAllHospitals, setSendToAllHospitals] = useState(false);
+  const [hospitalMessage, setHospitalMessage] = useState('');
+  const [hospitalSubject, setHospitalSubject] = useState('');
+  const [hospitalPriority, setHospitalPriority] = useState('normal');
+  const [sendingHospitalMessage, setSendingHospitalMessage] = useState(false);
+  const [hospitalSearchQuery, setHospitalSearchQuery] = useState('');
+
+  // Reply modal state
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+
   const userId = localStorage.getItem('userId'); // This is admin_id
 
   // Fetch hospital_id from admin_id
@@ -163,6 +180,182 @@ const Alerts = () => {
       setSendingMessage(false);
     }
   };
+
+  // Fuzzy match function for hospital search
+  const fuzzyMatch = (text, query) => {
+    if (!query) return true;
+    const textLower = text.toLowerCase();
+    const queryLower = query.toLowerCase();
+    
+    // Direct substring match
+    if (textLower.includes(queryLower)) return true;
+    
+    // Fuzzy: check if all query chars appear in order
+    let qi = 0;
+    for (let i = 0; i < textLower.length && qi < queryLower.length; i++) {
+      if (textLower[i] === queryLower[qi]) qi++;
+    }
+    if (qi === queryLower.length) return true;
+
+    // Levenshtein-based: allow typos for short queries
+    const words = textLower.split(/\s+/);
+    for (const word of words) {
+      if (levenshteinDistance(word, queryLower) <= Math.max(1, Math.floor(queryLower.length / 3))) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const levenshteinDistance = (a, b) => {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b[i - 1] === a[j - 1]) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    return matrix[b.length][a.length];
+  };
+
+  // Fetch hospitals for inter-hospital messaging
+  const fetchHospitals = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const response = await axiosInstance.get(`/hospital/inter-message/hospitals?admin_id=${parseInt(userId)}`);
+      if (response.data.status === 'success') {
+        setHospitals(response.data.hospitals || []);
+      }
+    } catch (error) {
+      console.error('Error fetching hospitals:', error);
+      setHospitals([]);
+    }
+  }, [userId]);
+
+  // Open hospital message modal
+  const openHospitalModal = () => {
+    setShowHospitalModal(true);
+    fetchHospitals();
+  };
+
+  // Handle hospital selection
+  const toggleHospitalSelection = (hospitalId) => {
+    setSelectedHospitals(prev => {
+      if (prev.includes(hospitalId)) {
+        return prev.filter(id => id !== hospitalId);
+      } else {
+        return [...prev, hospitalId];
+      }
+    });
+  };
+
+  // Send message to hospitals
+  const sendMessageToHospitals = async () => {
+    if (!hospitalMessage.trim()) {
+      alert('Please enter a message');
+      return;
+    }
+
+    if (!sendToAllHospitals && selectedHospitals.length === 0) {
+      alert('Please select at least one hospital');
+      return;
+    }
+
+    setSendingHospitalMessage(true);
+    try {
+      const response = await axiosInstance.post('/hospital/inter-message/send', {
+        admin_id: parseInt(userId),
+        hospital_ids: sendToAllHospitals ? 'all' : selectedHospitals,
+        message: hospitalMessage,
+        subject: hospitalSubject,
+        priority: hospitalPriority
+      });
+
+      if (response.data.status === 'success') {
+        alert(`Message sent to ${response.data.results.messages_sent} hospital(s).`);
+        setShowHospitalModal(false);
+        setHospitalMessage('');
+        setHospitalSubject('');
+        setHospitalPriority('normal');
+        setSelectedHospitals([]);
+        setSendToAllHospitals(false);
+        setHospitalSearchQuery('');
+        fetchAlerts(); // Refresh alerts
+      } else {
+        alert(`Failed to send message: ${response.data.message}`);
+      }
+    } catch (error) {
+      console.error('Error sending hospital message:', error);
+      alert('Error sending message. Please try again.');
+    } finally {
+      setSendingHospitalMessage(false);
+    }
+  };
+
+  // Reply to a hospital message
+  const openReplyModal = (alertItem) => {
+    setReplyingTo(alertItem);
+    setReplyMessage('');
+    setShowReplyModal(true);
+  };
+
+  const sendReply = async () => {
+    if (!replyMessage.trim()) {
+      alert('Please enter a reply message');
+      return;
+    }
+
+    setSendingReply(true);
+    try {
+      const response = await axiosInstance.post('/hospital/inter-message/reply', {
+        admin_id: parseInt(userId),
+        parent_message_id: replyingTo.message_id,
+        message: replyMessage
+      });
+
+      if (response.data.status === 'success') {
+        alert(`Reply sent to ${response.data.data.to_hospital_name}`);
+        setShowReplyModal(false);
+        setReplyMessage('');
+        setReplyingTo(null);
+        fetchAlerts(); // Refresh alerts
+      } else {
+        alert(`Failed to send reply: ${response.data.message}`);
+      }
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      alert('Error sending reply. Please try again.');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  // Mark hospital message as read
+  const markMessageRead = async (messageId) => {
+    try {
+      await axiosInstance.post('/hospital/inter-message/mark-read', {
+        admin_id: parseInt(userId),
+        message_ids: [messageId]
+      });
+      fetchAlerts();
+    } catch (error) {
+      console.error('Error marking message read:', error);
+    }
+  };
+
+  // Get filtered hospitals based on fuzzy search
+  const filteredHospitals = hospitals.filter(h =>
+    fuzzyMatch(h.name + ' ' + (h.address || ''), hospitalSearchQuery)
+  );
 
   // Filter alerts
   useEffect(() => {
@@ -344,8 +537,8 @@ const Alerts = () => {
             </GlassSurface>
           </div>
 
-          {/* Send Message Button */}
-          <div className="mb-6">
+          {/* Send Message Buttons */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-3">
             <button
               onClick={openMessageModal}
               className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg"
@@ -354,6 +547,15 @@ const Alerts = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
               </svg>
               Send Message to Doctors
+            </button>
+            <button
+              onClick={openHospitalModal}
+              className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              Send Message to Hospitals
             </button>
           </div>
 
@@ -408,6 +610,7 @@ const Alerts = () => {
               <div className="space-y-3">
                 {filteredAlerts.map((alert) => {
                   const style = getAlertStyle(alert.type);
+                  const isHospitalMessage = alert.id?.startsWith('ihm-');
                   return (
                     <div
                       key={alert.id}
@@ -424,8 +627,40 @@ const Alerts = () => {
                               {alert.category}
                             </span>
                           </div>
+                          {isHospitalMessage && (
+                            <p className="text-emerald-400 text-xs mb-1 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                              From: {alert.from_hospital_name}
+                              {alert.is_broadcast && <span className="ml-1 px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded text-[10px]">Broadcast</span>}
+                              {alert.priority === 'urgent' && <span className="ml-1 px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[10px]">Urgent</span>}
+                              {alert.priority === 'critical' && <span className="ml-1 px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px]">Critical</span>}
+                            </p>
+                          )}
                           <p className="text-white/60 text-sm mb-2">{alert.message}</p>
-                          <span className="text-white/40 text-xs">{formatTime(alert.timestamp)}</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-white/40 text-xs">{formatTime(alert.timestamp)}</span>
+                            {isHospitalMessage && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => openReplyModal(alert)}
+                                  className="px-3 py-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-xs rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                  </svg>
+                                  Reply
+                                </button>
+                                <button
+                                  onClick={() => markMessageRead(alert.message_id)}
+                                  className="px-3 py-1 bg-white/5 hover:bg-white/10 text-white/50 text-xs rounded-lg transition-colors"
+                                >
+                                  Mark Read
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -557,6 +792,301 @@ const Alerts = () => {
                     setSendToAll(false);
                   }}
                   disabled={sendingMessage}
+                  className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </GlassSurface>
+        </div>
+      )}
+
+      {/* Hospital Message Modal */}
+      {showHospitalModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <GlassSurface
+            opacity={0.95}
+            backgroundOpacity={0.15}
+            brightness={50}
+            blur={20}
+            borderRadius={20}
+            className="w-full max-w-2xl max-h-[90vh] overflow-auto"
+          >
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <svg className="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  Send Message to Hospitals
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowHospitalModal(false);
+                    setHospitalMessage('');
+                    setHospitalSubject('');
+                    setHospitalPriority('normal');
+                    setSelectedHospitals([]);
+                    setSendToAllHospitals(false);
+                    setHospitalSearchQuery('');
+                  }}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60 hover:text-white"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Send to All Hospitals */}
+              <div className="mb-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sendToAllHospitals}
+                    onChange={(e) => {
+                      setSendToAllHospitals(e.target.checked);
+                      if (e.target.checked) {
+                        setSelectedHospitals([]);
+                      }
+                    }}
+                    className="w-5 h-5 rounded border-white/20 bg-white/10 checked:bg-emerald-600"
+                  />
+                  <span className="text-white font-medium">Send to All Hospitals</span>
+                  <span className="text-white/40 text-sm">({hospitals.length} hospitals)</span>
+                </label>
+              </div>
+
+              {/* Hospital Selection with Fuzzy Search */}
+              {!sendToAllHospitals && (
+                <div className="mb-6">
+                  <label className="block text-white/60 text-sm mb-2">Select Hospitals:</label>
+                  {/* Search Input */}
+                  <div className="relative mb-2">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      type="text"
+                      value={hospitalSearchQuery}
+                      onChange={(e) => setHospitalSearchQuery(e.target.value)}
+                      placeholder="Search hospitals..."
+                      className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm"
+                    />
+                    {hospitalSearchQuery && (
+                      <button
+                        onClick={() => setHospitalSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-1 bg-white/5 rounded-lg p-3">
+                    {filteredHospitals.length === 0 ? (
+                      <p className="text-white/40 text-sm text-center py-4">
+                        {hospitalSearchQuery ? 'No hospitals match your search' : 'No hospitals found'}
+                      </p>
+                    ) : (
+                      filteredHospitals.map((hospital) => (
+                        <label key={hospital.hospital_id} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white/5 rounded-lg transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={selectedHospitals.includes(hospital.hospital_id)}
+                            onChange={() => toggleHospitalSelection(hospital.hospital_id)}
+                            className="w-4 h-4 rounded border-white/20 bg-white/10 checked:bg-emerald-600 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm truncate">{hospital.name}</p>
+                            {hospital.address && (
+                              <p className="text-white/40 text-xs truncate">{hospital.address}</p>
+                            )}
+                          </div>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {selectedHospitals.length > 0 && (
+                    <p className="text-emerald-400 text-sm mt-2">{selectedHospitals.length} hospital(s) selected</p>
+                  )}
+                  {hospitalSearchQuery && filteredHospitals.length > 0 && (
+                    <p className="text-white/30 text-xs mt-1">Showing {filteredHospitals.length} of {hospitals.length} hospitals</p>
+                  )}
+                </div>
+              )}
+
+              {/* Subject */}
+              <div className="mb-4">
+                <label className="block text-white/60 text-sm mb-2">Subject (optional):</label>
+                <input
+                  type="text"
+                  value={hospitalSubject}
+                  onChange={(e) => setHospitalSubject(e.target.value)}
+                  placeholder="Message subject..."
+                  maxLength={200}
+                  className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm"
+                />
+              </div>
+
+              {/* Priority */}
+              <div className="mb-4">
+                <label className="block text-white/60 text-sm mb-2">Priority:</label>
+                <div className="flex gap-2">
+                  {['normal', 'urgent', 'critical'].map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setHospitalPriority(p)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        hospitalPriority === p
+                          ? p === 'critical' ? 'bg-red-600 text-white'
+                            : p === 'urgent' ? 'bg-amber-600 text-white'
+                            : 'bg-emerald-600 text-white'
+                          : 'bg-white/10 text-white/60 hover:bg-white/20'
+                      }`}
+                    >
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Message Input */}
+              <div className="mb-6">
+                <label className="block text-white/60 text-sm mb-2">Message:</label>
+                <textarea
+                  value={hospitalMessage}
+                  onChange={(e) => setHospitalMessage(e.target.value)}
+                  placeholder="Type your message to hospitals..."
+                  rows={5}
+                  maxLength={2000}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 resize-none"
+                />
+                <p className="text-white/40 text-xs mt-1">{hospitalMessage.length} / 2000 characters</p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={sendMessageToHospitals}
+                  disabled={sendingHospitalMessage || !hospitalMessage.trim() || (!sendToAllHospitals && selectedHospitals.length === 0)}
+                  className="flex-1 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {sendingHospitalMessage ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      {sendToAllHospitals ? `Send to All (${hospitals.length})` : `Send Message`}
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowHospitalModal(false);
+                    setHospitalMessage('');
+                    setHospitalSubject('');
+                    setHospitalPriority('normal');
+                    setSelectedHospitals([]);
+                    setSendToAllHospitals(false);
+                    setHospitalSearchQuery('');
+                  }}
+                  disabled={sendingHospitalMessage}
+                  className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </GlassSurface>
+        </div>
+      )}
+
+      {/* Reply Modal */}
+      {showReplyModal && replyingTo && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <GlassSurface
+            opacity={0.95}
+            backgroundOpacity={0.15}
+            brightness={50}
+            blur={20}
+            borderRadius={20}
+            className="w-full max-w-lg max-h-[90vh] overflow-auto"
+          >
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white">Reply to Message</h2>
+                <button
+                  onClick={() => { setShowReplyModal(false); setReplyMessage(''); setReplyingTo(null); }}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60 hover:text-white"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Original Message */}
+              <div className="mb-4 p-3 bg-white/5 rounded-lg border border-white/10">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  <span className="text-emerald-400 text-sm font-medium">{replyingTo.from_hospital_name}</span>
+                  <span className="text-white/30 text-xs">{formatTime(replyingTo.timestamp)}</span>
+                </div>
+                {replyingTo.title && <p className="text-white/80 text-sm font-medium mb-1">{replyingTo.title}</p>}
+                <p className="text-white/50 text-sm">{replyingTo.message}</p>
+              </div>
+
+              {/* Reply Input */}
+              <div className="mb-4">
+                <label className="block text-white/60 text-sm mb-2">Your Reply:</label>
+                <textarea
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                  placeholder="Type your reply..."
+                  rows={4}
+                  maxLength={2000}
+                  autoFocus
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 resize-none"
+                />
+                <p className="text-white/40 text-xs mt-1">{replyMessage.length} / 2000 characters</p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={sendReply}
+                  disabled={sendingReply || !replyMessage.trim()}
+                  className="flex-1 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {sendingReply ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                      </svg>
+                      Send Reply
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => { setShowReplyModal(false); setReplyMessage(''); setReplyingTo(null); }}
+                  disabled={sendingReply}
                   className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
                 >
                   Cancel
