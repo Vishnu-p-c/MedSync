@@ -3427,6 +3427,196 @@ Notes:
   - Can be used even if doctor was not previously marked as available
 
 ================================================================================
+21. INTER-HOSPITAL MESSAGING
+================================================================================
+
+GET /hospital/inter-message/hospitals
+--------------------------------------------------------------------------------
+Description: List all hospitals (excluding the admin's own) for messaging.
+             Only returns hospitals, not clinics.
+
+Query Parameters:
+  - admin_id: number (required)
+
+Success Response:
+{
+  "status": "success",
+  "own_hospital_id": 5,
+  "hospitals": [
+    {
+      "hospital_id": 1,
+      "name": "City General Hospital",
+      "address": "123 Main St, Kozhikode"
+    }
+  ],
+  "total": 15
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id_required" }
+{ "status": "fail", "message": "admin_id_must_be_number" }
+{ "status": "fail", "message": "admin_not_found_or_no_hospital" }
+
+--------------------------------------------------------------------------------
+
+POST /hospital/inter-message/send
+--------------------------------------------------------------------------------
+Description: Send a message from one hospital to one or more hospitals.
+             Supports broadcast to all hospitals.
+
+Request Body:
+{
+  "admin_id": number (required),
+  "hospital_ids": array of numbers OR "all" (required),
+  "message": "string (required, max 2000 chars)",
+  "subject": "string (optional, max 200 chars)",
+  "priority": "normal | urgent | critical (optional, default: normal)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "messages_sent",
+  "from_hospital_id": 5,
+  "from_hospital_name": "PVS Memorial Hospital",
+  "is_broadcast": false,
+  "results": {
+    "total_hospitals": 3,
+    "messages_sent": 3,
+    "hospitals_not_found": 0
+  }
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["admin_id"] }
+{ "status": "fail", "message": "admin_id_must_be_number" }
+{ "status": "fail", "message": "message_cannot_be_empty" }
+{ "status": "fail", "message": "admin_not_found_or_no_hospital" }
+{ "status": "fail", "message": "sender_hospital_not_found" }
+{ "status": "fail", "message": "hospital_ids_must_be_array_or_all" }
+{ "status": "fail", "message": "no_target_hospitals" }
+
+Notes:
+  - Messages appear as alerts in receiving hospital's alert dashboard
+  - Priority maps to alert severity: critical→critical, urgent→warning, normal→info
+  - Broadcast sends to ALL hospitals except the sender
+  - Sender's own hospital is always excluded from recipients
+
+--------------------------------------------------------------------------------
+
+GET /hospital/inter-message/inbox
+--------------------------------------------------------------------------------
+Description: Get received inter-hospital messages (inbox) with pagination.
+
+Query Parameters:
+  - admin_id: number (required)
+  - unread_only: "true" | "false" (optional, default: false)
+  - page: number (optional, default: 1)
+  - limit: number (optional, default: 20, max: 50)
+
+Success Response:
+{
+  "status": "success",
+  "messages": [
+    {
+      "message_id": 42,
+      "from_hospital_id": 3,
+      "to_hospital_id": 5,
+      "from_admin_id": 10,
+      "message": "We are experiencing high patient inflow...",
+      "subject": "Patient Overflow Alert",
+      "priority": "urgent",
+      "is_read": false,
+      "read_at": null,
+      "is_broadcast": true,
+      "parent_message_id": null,
+      "timestamp": "2026-03-04T10:30:00.000Z",
+      "from_hospital_name": "City General Hospital"
+    }
+  ],
+  "total": 25,
+  "unread_count": 5,
+  "page": 1,
+  "limit": 20,
+  "total_pages": 2
+}
+
+Failure Responses:
+{ "status": "fail", "message": "admin_id_required" }
+{ "status": "fail", "message": "admin_id_must_be_number" }
+{ "status": "fail", "message": "admin_not_found_or_no_hospital" }
+
+--------------------------------------------------------------------------------
+
+POST /hospital/inter-message/mark-read
+--------------------------------------------------------------------------------
+Description: Mark one or more inter-hospital messages as read.
+
+Request Body:
+{
+  "admin_id": number (required),
+  "message_ids": number | array of numbers (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "messages_marked_read",
+  "updated": 3
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["admin_id"] }
+{ "status": "fail", "message": "admin_id_must_be_number" }
+{ "status": "fail", "message": "admin_not_found_or_no_hospital" }
+{ "status": "fail", "message": "no_valid_message_ids" }
+
+--------------------------------------------------------------------------------
+
+POST /hospital/inter-message/reply
+--------------------------------------------------------------------------------
+Description: Reply to a received inter-hospital message. The reply is sent back
+             to the original sender hospital. The original message is automatically
+             marked as read.
+
+Request Body:
+{
+  "admin_id": number (required),
+  "parent_message_id": number (required),
+  "message": "string (required, max 2000 chars)",
+  "priority": "normal | urgent | critical (optional, inherits parent priority)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "reply_sent",
+  "data": {
+    "message_id": 43,
+    "from_hospital_id": 5,
+    "from_hospital_name": "PVS Memorial Hospital",
+    "to_hospital_id": 3,
+    "to_hospital_name": "City General Hospital",
+    "parent_message_id": 42,
+    "timestamp": "2026-03-04T11:00:00.000Z"
+  }
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["parent_message_id"] }
+{ "status": "fail", "message": "admin_id_must_be_number" }
+{ "status": "fail", "message": "message_cannot_be_empty" }
+{ "status": "fail", "message": "admin_not_found_or_no_hospital" }
+{ "status": "fail", "message": "parent_message_not_found" }
+{ "status": "fail", "message": "not_authorized_to_reply" }
+
+Notes:
+  - Can only reply to messages where your hospital is the recipient
+  - Subject auto-prefixed with "Re: " from parent message
+  - Priority defaults to parent message's priority if not specified
+  - Original message is automatically marked as read when replying
+
+================================================================================
                               END OF API REFERENCE
 ================================================================================
 

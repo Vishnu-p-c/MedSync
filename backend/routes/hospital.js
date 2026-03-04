@@ -7,6 +7,13 @@ const EquipmentStatus = require('../models/Equipment');
 const bcrypt = require('bcryptjs');
 const DoctorDetails = require('../models/Doctor');
 const {sendMessageToDoctor} = require('../controllers/hospitalController');
+const {
+  listHospitals,
+  sendInterHospitalMessage,
+  getInbox,
+  markMessageRead,
+  replyToMessage
+} = require('../controllers/interHospitalController');
 
 const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
@@ -799,5 +806,12 @@ router.post('/attendence-unmark', async (req, res) => {
 // Body: { hospital_id, doctor_ids, message }
 // Send message from hospital to doctor(s)
 router.post('/send-message', sendMessageToDoctor);
+
+// Inter-hospital messaging routes
+router.get('/inter-message/hospitals', listHospitals);
+router.post('/inter-message/send', sendInterHospitalMessage);
+router.get('/inter-message/inbox', getInbox);
+router.post('/inter-message/mark-read', markMessageRead);
+router.post('/inter-message/reply', replyToMessage);
 
 module.exports = router;

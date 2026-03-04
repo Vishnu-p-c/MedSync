@@ -119,9 +119,6 @@ export default function GlassSurface({
       ref={ref}
       className={`glass-surface ${className}`}
       style={computed}
-      onPointerEnter={onEnter}
-      onPointerMove={onMove}
-      onPointerLeave={onLeave}
     >
       <div className="glass-surface__content">{children}</div>
     </div>
