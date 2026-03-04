@@ -80,4 +80,83 @@ const addEquipment = async (req, res) => {
   }
 };
 
-module.exports = {addEquipment};
+// POST /equipment/update-status - Update equipment status
+const updateEquipmentStatus = async (req, res) => {
+  try {
+    const {admin_id, equipment_id, status} = req.body;
+
+    // Validate required fields
+    const missing = [];
+    if (!admin_id) missing.push('admin_id');
+    if (equipment_id === undefined || equipment_id === null)
+      missing.push('equipment_id');
+    if (!status) missing.push('status');
+
+    if (missing.length > 0) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_fields', missing});
+    }
+
+    const adminIdNum = Number(admin_id);
+    const equipIdNum = Number(equipment_id);
+    if (isNaN(adminIdNum) || isNaN(equipIdNum)) {
+      return res.status(400).json(
+          {status: 'fail', message: 'ids_must_be_numbers'});
+    }
+
+    // Validate status enum
+    const validStatuses = ['working', 'maintenance', 'down'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'invalid_status',
+        valid_statuses: validStatuses
+      });
+    }
+
+    // Verify admin
+    const adminRecord = await HospitalAdmin.findOne({admin_id: adminIdNum});
+    if (!adminRecord) {
+      return res.status(404).json({status: 'fail', message: 'admin_not_found'});
+    }
+
+    const hospitalId = adminRecord.hospital_id;
+
+    // Find equipment and verify it belongs to admin's hospital
+    const equipment = await Equipment.findOne({equipment_id: equipIdNum});
+    if (!equipment) {
+      return res.status(404).json(
+          {status: 'fail', message: 'equipment_not_found'});
+    }
+
+    if (equipment.hospital_id !== hospitalId) {
+      return res.status(403).json(
+          {status: 'fail', message: 'equipment_not_in_your_hospital'});
+    }
+
+    // Update status
+    equipment.status = status;
+    equipment.last_updated = new Date();
+    await equipment.save();
+
+    return res.json({
+      status: 'success',
+      message: 'equipment_status_updated',
+      equipment: {
+        equipment_id: equipment.equipment_id,
+        equipment_name: equipment.equipment_name,
+        status: equipment.status,
+        last_updated: equipment.last_updated
+      }
+    });
+
+  } catch (err) {
+    console.error('Error in /equipment/update-status:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+};
+
+module.exports = {
+  addEquipment,
+  updateEquipmentStatus
+};

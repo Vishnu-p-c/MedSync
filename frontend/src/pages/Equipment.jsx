@@ -230,7 +230,8 @@ const Equipment = () => {
 
   // Handle status change
   const handleStatusChange = async (equipmentId, newBackendStatus) => {
-    setUpdatingStatus(equipmentId);
+    const targetId = equipmentId;
+    setUpdatingStatus(targetId);
     setOpenMenuId(null);
     try {
       const adminId = localStorage.getItem('userId');
@@ -238,32 +239,45 @@ const Equipment = () => {
 
       const response = await axiosInstance.post('/equipment/update-status', {
         admin_id: Number(adminId),
-        equipment_id: equipmentId,
+        equipment_id: targetId,
         status: newBackendStatus
       });
+
+      console.log('Status update response:', response.data);
 
       if (response.data.status === 'success') {
         // Update local state immediately
         setEquipmentList(prev => prev.map(item =>
-          item.id === equipmentId
+          item.id === targetId
             ? { ...item, status: mapStatus(newBackendStatus), lastChecked: new Date() }
             : item
         ));
       }
     } catch (err) {
       console.error('Error updating equipment status:', err);
+      console.error('Response:', err.response?.data);
     } finally {
       setUpdatingStatus(null);
     }
   };
 
-  // Close menu when clicking outside
+  // Close menu when clicking outside - skip if clicking inside the portal
   useEffect(() => {
-    const handleClickOutside = () => setOpenMenuId(null);
-    if (openMenuId !== null) {
+    if (openMenuId === null) return;
+    const handleClickOutside = (e) => {
+      // Don't close if click is inside the portal dropdown
+      const portal = document.querySelector('[data-equipment-menu]');
+      if (portal && portal.contains(e.target)) return;
+      setOpenMenuId(null);
+    };
+    // Use setTimeout to avoid the same click that opened the menu from closing it
+    const timer = setTimeout(() => {
       document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClickOutside);
+    };
   }, [openMenuId]);
 
   return (
@@ -561,45 +575,43 @@ const Equipment = () => {
       {/* Status change dropdown - rendered as portal to avoid overflow clipping */}
       {openMenuId !== null && createPortal(
         <div
-          className="fixed inset-0 z-[9999]"
-          onClick={() => setOpenMenuId(null)}
+          data-equipment-menu
+          className="fixed w-48 bg-[#0a1929]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[9999]"
+          style={{ top: menuPos.top, right: menuPos.right }}
         >
-          <div
-            className="fixed w-48 bg-[#0a1929]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden"
-            style={{ top: menuPos.top, right: menuPos.right }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-3 py-2 border-b border-white/10">
-              <p className="text-white/40 text-xs font-medium uppercase tracking-wider">Change Status</p>
-            </div>
-            {statusOptions.map((opt) => {
-              const currentItem = equipmentList.find(eq => eq.id === openMenuId);
-              const isCurrent = currentItem?.status === opt.label;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => handleStatusChange(openMenuId, opt.value)}
-                  disabled={isCurrent}
-                  className={`w-full text-left px-3 py-2.5 text-sm transition-colors flex items-center gap-2 ${
-                    isCurrent
-                      ? 'bg-white/5 text-white/30 cursor-default'
-                      : 'hover:bg-white/10 text-white'
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${
-                    opt.value === 'working' ? 'bg-green-400' :
-                    opt.value === 'maintenance' ? 'bg-yellow-400' : 'bg-red-400'
-                  }`}></span>
-                  <span>{opt.label}</span>
-                  {isCurrent && (
-                    <svg className="w-4 h-4 ml-auto text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
-              );
-            })}
+          <div className="px-3 py-2 border-b border-white/10">
+            <p className="text-white/40 text-xs font-medium uppercase tracking-wider">Change Status</p>
           </div>
+          {statusOptions.map((opt) => {
+            const currentItem = equipmentList.find(eq => eq.id === openMenuId);
+            const isCurrent = currentItem?.status === opt.label;
+            return (
+              <button
+                key={opt.value}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isCurrent) handleStatusChange(openMenuId, opt.value);
+                }}
+                disabled={isCurrent}
+                className={`w-full text-left px-3 py-2.5 text-sm transition-colors flex items-center gap-2 ${
+                  isCurrent
+                    ? 'bg-white/5 text-white/30 cursor-default'
+                    : 'hover:bg-white/10 text-white'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${
+                  opt.value === 'working' ? 'bg-green-400' :
+                  opt.value === 'maintenance' ? 'bg-yellow-400' : 'bg-red-400'
+                }`}></span>
+                <span>{opt.label}</span>
+                {isCurrent && (
+                  <svg className="w-4 h-4 ml-auto text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
         </div>,
         document.body
       )}
