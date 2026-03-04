@@ -1453,6 +1453,99 @@ const cancelAppointment = async (req, res) => {
   }
 };
 
+// POST /doctor/all-schedules - Get all schedules for a doctor across all
+// locations
+const getAllDoctorSchedules = async (req, res) => {
+  try {
+    const {user_id} = req.body;
+
+    // Validate required field
+    if (!user_id) {
+      return res.json(
+          {status: 'fail', message: 'missing_fields', missing: ['user_id']});
+    }
+
+    // Validate user_id is a number
+    const userIdNum = parseInt(user_id);
+    if (isNaN(userIdNum)) {
+      return res.json({status: 'fail', message: 'user_id_must_be_number'});
+    }
+
+    // Verify user exists
+    const user = await User.findOne({user_id: userIdNum});
+    if (!user) {
+      return res.json({status: 'fail', message: 'user_not_found'});
+    }
+
+    // Verify user is a doctor
+    if (user.role !== 'doctor') {
+      return res.json({status: 'fail', message: 'user_is_not_a_doctor'});
+    }
+
+    // Get doctor details
+    const doctor = await Doctor.findOne({doctor_id: userIdNum});
+    if (!doctor) {
+      return res.json({status: 'fail', message: 'doctor_details_not_found'});
+    }
+
+    // Get doctor's schedule
+    const schedule = await DoctorSchedule.findOne({doctor_id: userIdNum});
+    if (!schedule) {
+      return res.json({status: 'fail', message: 'schedule_not_found'});
+    }
+
+    // Process all schedules
+    const schedules = [];
+
+    // Process hospital schedules
+    if (schedule.hospital_schedule && schedule.hospital_schedule.size > 0) {
+      for (const [hospitalId, hospitalSchedule] of schedule.hospital_schedule) {
+        const hospital =
+            await Hospital.findOne({hospital_id: parseInt(hospitalId)});
+
+        schedules.push({
+          location_type: 'hospital',
+          location_id: parseInt(hospitalId),
+          location_name: hospital ? hospital.name :
+                                    hospitalSchedule.location_name,
+          location_address: hospital ? hospital.address : null,
+          weekly_schedule: hospitalSchedule.slots,
+          available_days: [...new Set(hospitalSchedule.slots.map(s => s.day))]
+        });
+      }
+    }
+
+    // Process clinic schedules
+    if (schedule.clinic_schedule && schedule.clinic_schedule.size > 0) {
+      for (const [clinicId, clinicSchedule] of schedule.clinic_schedule) {
+        const clinic = await Clinic.findOne({clinic_id: parseInt(clinicId)});
+
+        schedules.push({
+          location_type: 'clinic',
+          location_id: parseInt(clinicId),
+          location_name: clinic ? clinic.name : clinicSchedule.location_name,
+          location_address: clinic ? clinic.address : null,
+          weekly_schedule: clinicSchedule.slots,
+          available_days: [...new Set(clinicSchedule.slots.map(s => s.day))]
+        });
+      }
+    }
+
+    return res.json({
+      status: 'success',
+      doctor_id: doctor.doctor_id,
+      doctor_name: `${doctor.first_name} ${doctor.last_name || ''}`.trim(),
+      department: doctor.department,
+      total_locations: schedules.length,
+      schedules: schedules
+    });
+
+  } catch (error) {
+    console.error('Get all doctor schedules error:', error);
+    return res.json({status: 'error', message: 'server_error'});
+  }
+};
+
 module.exports = {
   createAppointment,
   getPatientAppointments,
@@ -1465,5 +1558,6 @@ module.exports = {
   getDoctorWaitingQueue,
   updateDoctorFcmToken,
   getAppointmentHistory,
-  cancelAppointment
+  cancelAppointment,
+  getAllDoctorSchedules
 };

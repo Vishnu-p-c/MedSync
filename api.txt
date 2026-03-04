@@ -1245,6 +1245,115 @@ Failure Responses:
 
 --------------------------------------------------------------------------------
 
+POST /doctor/all-schedules
+--------------------------------------------------------------------------------
+Description: Get all schedules for a doctor across all locations (hospitals and clinics).
+             Returns complete weekly schedule for each location where the doctor consults.
+             Verifies user is a doctor before returning schedules.
+
+Request Body:
+{
+  "user_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "doctor_id": 12,
+  "doctor_name": "Dr. Mohammed Fazil",
+  "department": "Gastroenterology",
+  "total_locations": 3,
+  "schedules": [
+    {
+      "location_type": "hospital",
+      "location_id": 1,
+      "location_name": "City General Hospital",
+      "location_address": "123 Main Street",
+      "weekly_schedule": [
+        {
+          "day": "monday",
+          "start": "09:00",
+          "end": "13:00",
+          "slot_duration": 30,
+          "max_patients": 4
+        },
+        {
+          "day": "wednesday",
+          "start": "14:00",
+          "end": "18:00",
+          "slot_duration": 30,
+          "max_patients": 4
+        },
+        {
+          "day": "friday",
+          "start": "10:00",
+          "end": "14:00",
+          "slot_duration": 30,
+          "max_patients": 4
+        }
+      ],
+      "available_days": ["monday", "wednesday", "friday"]
+    },
+    {
+      "location_type": "hospital",
+      "location_id": 2,
+      "location_name": "Metro Medical Center",
+      "location_address": "456 Health Avenue",
+      "weekly_schedule": [
+        {
+          "day": "tuesday",
+          "start": "09:00",
+          "end": "13:00",
+          "slot_duration": 30,
+          "max_patients": 4
+        },
+        {
+          "day": "thursday",
+          "start": "14:00",
+          "end": "18:00",
+          "slot_duration": 30,
+          "max_patients": 4
+        }
+      ],
+      "available_days": ["tuesday", "thursday"]
+    },
+    {
+      "location_type": "clinic",
+      "location_id": 1,
+      "location_name": "Good Health Clinic",
+      "location_address": "789 Wellness Road",
+      "weekly_schedule": [
+        {
+          "day": "saturday",
+          "start": "10:00",
+          "end": "16:00",
+          "slot_duration": 30,
+          "max_patients": 4
+        }
+      ],
+      "available_days": ["saturday"]
+    }
+  ]
+}
+
+Notes:
+- Returns ALL locations where the doctor has scheduled consultation times
+- Each schedule includes location details, weekly time slots, and available days
+- Schedules are grouped by location (hospitals listed first, then clinics)
+- slot_duration is in minutes
+- max_patients indicates how many patients can be booked per time slot
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["user_id"] }
+{ "status": "fail", "message": "user_id_must_be_number" }
+{ "status": "fail", "message": "user_not_found" }
+{ "status": "fail", "message": "user_is_not_a_doctor" }
+{ "status": "fail", "message": "doctor_details_not_found" }
+{ "status": "fail", "message": "schedule_not_found" }
+{ "status": "error", "message": "server_error" }
+
+--------------------------------------------------------------------------------
+
 POST /doctor/list
 --------------------------------------------------------------------------------
 Description: Get paginated list of doctors with optional filters and location-based
@@ -3275,6 +3384,47 @@ Empty Hospital List:
   "hospitals": [],
   "message": "no_hospitals_assigned"
 }
+
+--------------------------------------------------------------------------------
+
+POST /hospital/attendence-unmark
+--------------------------------------------------------------------------------
+Description: Marks a doctor as unavailable at a specific hospital. This is the
+             counterpart endpoint to attendence-mark used when a doctor ends
+             their shift or leaves a hospital location. Sets is_available to
+             false and clears the current_hospital_id.
+
+Request Body:
+{
+  "doctor_id": number (required) - The doctor's ID
+  "hospital_id": number (required) - The hospital ID to unmark from
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "doctor_marked_unavailable",
+  "doctor_id": 123,
+  "hospital_id": 7,
+  "marked_at": "2026-02-06T17:30:15.000Z"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_fields", "missing": ["doctor_id"] }
+{ "status": "fail", "message": "missing_fields", "missing": ["hospital_id"] }
+{ "status": "fail", "message": "doctor_id_must_be_number" }
+{ "status": "fail", "message": "hospital_id_must_be_number" }
+{ "status": "fail", "message": "doctor_not_found" }
+{ "status": "fail", "message": "doctor_not_assigned_to_hospital" }
+
+Notes:
+  - Sets `is_available` to false in the doctor's record
+  - Sets `current_hospital_id` to null
+  - Updates the `hospital_attendance` map to mark the hospital as unavailable
+  - Used when doctor completes their shift or leaves the hospital
+  - Counterpart to POST /hospital/attendence-mark (check-in vs check-out)
+  - Does not require NFC or password validation (unlike attendence-mark)
+  - Can be used even if doctor was not previously marked as available
 
 ================================================================================
                               END OF API REFERENCE
