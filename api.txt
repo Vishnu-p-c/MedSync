@@ -243,6 +243,7 @@ Success Response (assigned):
   "sos_id": 1706300000000,
   "patient_id": 16,
   "patient_name": "Jane Williams",
+  "patient_phone": "9999999999",
   "patient_latitude": 40.72,
   "patient_longitude": -74.01,
   "assigned_hospital_name": "City General Hospital",
@@ -838,6 +839,35 @@ Failure Responses:
 { "status": "already_cancelled" }
 { "status": "fail", "message": "cannot_cancel_now" }
 { "status": "fail", "message": "not_request_owner" }
+
+--------------------------------------------------------------------------------
+
+POST /sos/sos-complete
+--------------------------------------------------------------------------------
+Description: Mark an SOS request as completed. Only valid when the SOS is in
+             the 'hospital_assigned' state (i.e. driver is en route to hospital
+             with the patient). Once completed, the driver is freed from the
+             assignment (assigned-sos poll returns no_assignment).
+
+Request Body:
+{
+  "sos_id": number (required)
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "sos_completed",
+  "sos_id": 1706300000000
+}
+
+Failure Responses:
+{ "status": "fail", "message": "missing_field: sos_id" }
+{ "status": "fail", "message": "sos_id_must_be_number" }
+{ "status": "fail", "message": "sos_not_found" } (HTTP 404)
+{ "status": "fail", "message": "already_completed" }
+{ "status": "fail", "message": "sos_not_in_hospital_assigned", "current_status": "..." } (HTTP 400)
+{ "status": "error", "message": "server_error" } (HTTP 500)
 
 ================================================================================
 7. CHATBOT
