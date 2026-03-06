@@ -1,6 +1,9 @@
 // App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import Discover from "./pages/Discover";
+import Register from "./pages/Register";
 import AdminDashboard from "./pages/AdminDashboard";
 import AmbulanceDashboard from "./pages/AmbulanceDashboard";
 import Doctors from "./pages/Doctors";
@@ -16,17 +19,10 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
-        <Route 
-          path="/" 
-          element={
-            isAuthenticated ? (
-              <Navigate to="/admin-dashboard" replace />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          } 
-        />
+        <Route path="/discover" element={<Discover />} />
+        <Route path="/register" element={<Register />} />
         <Route 
           path="/admin-dashboard" 
           element={
@@ -90,7 +86,7 @@ function App() {
             isAuthenticated ? (
               <Navigate to="/admin-dashboard" replace />
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/" replace />
             )
           } 
         />
