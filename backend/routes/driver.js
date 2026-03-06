@@ -285,6 +285,7 @@ router.post('/assigned-sos', async (req, res) => {
       sos_id: sos.sos_id,
       patient_id: sos.patient_id,
       patient_name: patientName,
+      patient_phone: patient ? (patient.phone || null) : null,
       patient_latitude: sos.latitude,
       patient_longitude: sos.longitude,
       assigned_hospital_name: assignedHospitalName,

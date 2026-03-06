@@ -1406,4 +1406,50 @@ router.post('/hospital-incoming', async (req, res) => {
   }
 });
 
+// POST /sos/sos-complete
+// Body: { sos_id: Number }
+// Marks a hospital_assigned SOS as completed and frees the driver
+router.post('/sos-complete', async (req, res) => {
+  try {
+    const {sos_id} = req.body;
+
+    if (sos_id === undefined || sos_id === null) {
+      return res.status(400).json(
+          {status: 'fail', message: 'missing_field: sos_id'});
+    }
+
+    const sosIdNum = Number(sos_id);
+    if (isNaN(sosIdNum)) {
+      return res.status(400).json(
+          {status: 'fail', message: 'sos_id_must_be_number'});
+    }
+
+    const sos = await SosRequest.findOne({sos_id: sosIdNum});
+    if (!sos) {
+      return res.status(404).json({status: 'fail', message: 'sos_not_found'});
+    }
+
+    if (sos.status === 'completed') {
+      return res.json({status: 'fail', message: 'already_completed'});
+    }
+
+    if (sos.status !== 'hospital_assigned') {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'sos_not_in_hospital_assigned',
+        current_status: sos.status
+      });
+    }
+
+    sos.status = 'completed';
+    await sos.save();
+
+    return res.json(
+        {status: 'success', message: 'sos_completed', sos_id: sos.sos_id});
+  } catch (err) {
+    console.error('Error in /sos/sos-complete:', err);
+    return res.status(500).json({status: 'error', message: 'server_error'});
+  }
+});
+
 module.exports = router;
