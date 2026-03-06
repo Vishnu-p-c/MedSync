@@ -780,6 +780,7 @@ router.post('/assign-hospital', async (req, res) => {
     sos.assigned_hospital_id = selectedHospital.hospital_id;
     sos.severity = severity;  // Update severity as well
     sos.eta_minutes = estimatedTimeMinutes;
+    sos.status = 'hospital_assigned';
     await sos.save();
 
     return res.json({
