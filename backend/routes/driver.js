@@ -242,7 +242,7 @@ router.post('/assigned-sos', async (req, res) => {
       return res.json({status: 'no_assignment'});
     }
 
-    // Fetch the SOS and ensure its status is 'assigned'
+    // Fetch the SOS and ensure it is in an active state
     const sos = await SosRequest.findOne({sos_id: assignment.sos_id}).lean();
     if (!sos) {
       console.error(
@@ -250,8 +250,10 @@ router.post('/assigned-sos', async (req, res) => {
       return res.json({status: 'no_assignment'});
     }
 
-    if (sos.status !== 'assigned') {
-      // Only return currently assigned SOS
+    const ACTIVE_SOS_STATUSES =
+        ['assigned', 'driver_arrived', 'hospital_assigned'];
+    if (!ACTIVE_SOS_STATUSES.includes(sos.status)) {
+      // SOS is completed, cancelled, or otherwise no longer active
       return res.json({status: 'no_assignment'});
     }
 
