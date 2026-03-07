@@ -296,6 +296,7 @@ function MiniNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [headerShapeClass, setHeaderShapeClass] = useState('rounded-full');
   const shapeTimeoutRef = useRef(null);
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -326,6 +327,22 @@ function MiniNavbar() {
   const navLinksData = [
     { label: 'Discover', href: '/discover' },
   ];
+
+  const dashboardButtonElement = (
+    <Link to="/admin-dashboard" className="w-full sm:w-auto">
+      <div className="relative group w-full sm:w-auto">
+        <div className="absolute inset-0 -m-2 rounded-full
+                    hidden sm:block
+                    bg-gray-100
+                    opacity-40 filter blur-lg pointer-events-none
+                    transition-all duration-300 ease-out
+                    group-hover:opacity-60 group-hover:blur-xl group-hover:-m-3"></div>
+        <button className="relative z-10 px-4 py-2 sm:px-3 text-xs sm:text-sm font-semibold text-black bg-gradient-to-br from-gray-100 to-gray-300 rounded-full hover:from-gray-200 hover:to-gray-400 transition-all duration-200 w-full sm:w-auto">
+          Admin Dashboard
+        </button>
+      </div>
+    </Link>
+  );
 
   const loginButtonElement = (
     <Link to="/login">
@@ -374,8 +391,7 @@ function MiniNavbar() {
         </nav>
 
         <div className="hidden sm:flex items-center gap-2 sm:gap-3">
-          {loginButtonElement}
-          {signupButtonElement}
+          {isAuthenticated ? dashboardButtonElement : (<>{loginButtonElement}{signupButtonElement}</>)}
         </div>
 
         <button className="sm:hidden flex items-center justify-center w-8 h-8 text-gray-300 focus:outline-none" onClick={toggleMenu} aria-label={isOpen ? 'Close Menu' : 'Open Menu'}>
@@ -397,8 +413,7 @@ function MiniNavbar() {
           ))}
         </nav>
         <div className="flex flex-col items-center space-y-4 mt-4 w-full">
-          {loginButtonElement}
-          {signupButtonElement}
+          {isAuthenticated ? dashboardButtonElement : (<>{loginButtonElement}{signupButtonElement}</>)}
         </div>
       </div>
     </header>
@@ -407,6 +422,7 @@ function MiniNavbar() {
 
 export const SignInPage = ({ className }) => {
   const navigate = useNavigate();
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
   const [email, setEmail] = useState("");
   const [step, setStep] = useState("email");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
@@ -528,19 +544,27 @@ export const SignInPage = ({ className }) => {
                     </div>
 
                     <div className="space-y-4">
-                      <button onClick={() => navigate('/login')} className="backdrop-blur-[2px] w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full py-3 px-4 transition-colors">
-                        <span>Login</span>
-                      </button>
+                      {isAuthenticated ? (
+                        <button onClick={() => navigate('/admin-dashboard')} className="backdrop-blur-[2px] w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full py-3 px-4 transition-colors">
+                          <span>Admin Dashboard</span>
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => navigate('/login')} className="backdrop-blur-[2px] w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full py-3 px-4 transition-colors">
+                            <span>Login</span>
+                          </button>
 
-                      <div className="flex items-center gap-4">
-                        <div className="h-px bg-white/10 flex-1" />
-                        <span className="text-white/40 text-sm">or</span>
-                        <div className="h-px bg-white/10 flex-1" />
-                      </div>
+                          <div className="flex items-center gap-4">
+                            <div className="h-px bg-white/10 flex-1" />
+                            <span className="text-white/40 text-sm">or</span>
+                            <div className="h-px bg-white/10 flex-1" />
+                          </div>
 
-                      <p className="text-sm text-white/50">
-                        New to MedSync? <Link to="/register" className="text-white underline hover:text-white/80 transition-colors">Sign up</Link>
-                      </p>
+                          <p className="text-sm text-white/50">
+                            New to MedSync? <Link to="/register" className="text-white underline hover:text-white/80 transition-colors">Sign up</Link>
+                          </p>
+                        </>
+                      )}
                     </div>
 
                     <p className="text-xs text-white/40 pt-10">
