@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
-const transporter = require('../config/mailer');
+const resend = require('../config/mailer');
 
 // In-memory token store (for production, use Redis or a DB collection)
 const resetTokens = new Map();
@@ -47,11 +47,10 @@ exports.forgotPassword = async (req, res) => {
     // Build reset link
     const resetLink = `${FRONTEND_URL}/reset-password?token=${token}`;
 
-    // Send email
-    await transporter.sendMail({
-      from: `"MedSync" <${
-          process.env.EMAIL_USER || 'medsync.pentagon@gmail.com'}>`,
-      to: user.email,
+    // Send email via Resend (HTTP API — no SMTP ports needed)
+    const { error: emailError } = await resend.emails.send({
+      from: 'MedSync <onboarding@resend.dev>',
+      to: [user.email],
       subject: 'MedSync — Password Reset',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 30px; background: #0a0a0a; border-radius: 12px;">
@@ -63,13 +62,11 @@ exports.forgotPassword = async (req, res) => {
           </p>
           <p style="color: #ccc; font-size: 14px; line-height: 1.6;">
             We received a request to reset the password for your account
-            (<strong>${
-          user.username}</strong>). Click the button below to set a new password.
+            (<strong>${user.username}</strong>). Click the button below to set a new password.
             This link expires in <strong>15 minutes</strong>.
           </p>
           <div style="text-align: center; margin: 28px 0;">
-            <a href="${
-          resetLink}" style="background: #2196f3; color: #fff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
+            <a href="${resetLink}" style="background: #2196f3; color: #fff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
               Reset Password
             </a>
           </div>
@@ -79,6 +76,11 @@ exports.forgotPassword = async (req, res) => {
         </div>
       `,
     });
+
+    if (emailError) {
+      console.error('Resend email error:', emailError);
+      return res.status(500).json({ status: 'fail', message: 'Failed to send reset email.' });
+    }
 
     // Mask the email for the response
     const masked = user.email.replace(
