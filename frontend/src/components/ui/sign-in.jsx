@@ -92,6 +92,11 @@ export const SignInPage = ({
                     </button>
                   </div>
                 </GlassInputWrapper>
+                <div className="mt-1 text-right">
+                  <Link to="/forgot-password" className="text-xs text-[#2196f3] hover:underline transition-colors">
+                    Forgot Password?
+                  </Link>
+                </div>
               </div>
 
               <button

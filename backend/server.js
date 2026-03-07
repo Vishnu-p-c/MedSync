@@ -23,6 +23,7 @@ const messagesRoutes = require('./routes/messages');
 const patientRoutes = require('./routes/patient');
 const conversationsRoutes = require('./routes/conversations');
 const equipmentRoutes = require('./routes/equipmentRoutes');
+const passwordResetRoutes = require('./routes/passwordReset');
 
 const app = express();
 
@@ -58,6 +59,7 @@ app.use('/messages', messagesRoutes);
 app.use('/patient', patientRoutes);
 app.use('/conversations', conversationsRoutes);
 app.use('/equipment', equipmentRoutes);
+app.use('/password', passwordResetRoutes);
 // app.use("/api/doctors", require("./routes/doctorRoutes"));
 
 app.listen(5000, () => console.log('Server running on port 5000'));
