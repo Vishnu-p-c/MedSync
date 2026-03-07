@@ -23,7 +23,7 @@ export const registerAdmin = async (data) => {
 
 export const forgotPassword = async (identifier) => {
   try {
-    const res = await axiosInstance.post('/password/forgot', { identifier });
+    const res = await axiosInstance.post('/password/forgot', {identifier});
     return res.data;
   } catch (err) {
     return {
@@ -35,7 +35,8 @@ export const forgotPassword = async (identifier) => {
 
 export const resetPassword = async (token, newPassword) => {
   try {
-    const res = await axiosInstance.post('/password/reset', { token, newPassword });
+    const res =
+        await axiosInstance.post('/password/reset', {token, newPassword});
     return res.data;
   } catch (err) {
     return {
@@ -47,7 +48,8 @@ export const resetPassword = async (token, newPassword) => {
 
 export const verifyResetToken = async (token) => {
   try {
-    const res = await axiosInstance.get(`/password/verify-token?token=${token}`);
+    const res =
+        await axiosInstance.get(`/password/verify-token?token=${token}`);
     return res.data;
   } catch (err) {
     return {

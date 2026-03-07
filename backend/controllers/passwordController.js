@@ -12,22 +12,26 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5174';
 // Accepts { identifier } which can be username or email
 exports.forgotPassword = async (req, res) => {
   try {
-    const { identifier } = req.body;
+    const {identifier} = req.body;
 
     if (!identifier) {
-      return res.json({ status: 'fail', message: 'Please provide a username or email.' });
+      return res.json(
+          {status: 'fail', message: 'Please provide a username or email.'});
     }
 
     // Find user by username or email
     const user = await User.findOne({
       $or: [
-        { username: identifier },
-        { email: identifier },
+        {username: identifier},
+        {email: identifier},
       ],
     });
 
     if (!user) {
-      return res.json({ status: 'fail', message: 'No account found with that username or email.' });
+      return res.json({
+        status: 'fail',
+        message: 'No account found with that username or email.'
+      });
     }
 
     // Generate a secure token
@@ -37,7 +41,7 @@ exports.forgotPassword = async (req, res) => {
     resetTokens.set(token, {
       userId: user.user_id,
       email: user.email,
-      expiresAt: Date.now() + 15 * 60 * 1000, // 15 minutes
+      expiresAt: Date.now() + 15 * 60 * 1000,  // 15 minutes
     });
 
     // Build reset link
@@ -45,7 +49,8 @@ exports.forgotPassword = async (req, res) => {
 
     // Send email
     await transporter.sendMail({
-      from: `"MedSync" <${process.env.EMAIL_USER || 'medsync.pentagon@gmail.com'}>`,
+      from: `"MedSync" <${
+          process.env.EMAIL_USER || 'medsync.pentagon@gmail.com'}>`,
       to: user.email,
       subject: 'MedSync — Password Reset',
       html: `
@@ -58,11 +63,13 @@ exports.forgotPassword = async (req, res) => {
           </p>
           <p style="color: #ccc; font-size: 14px; line-height: 1.6;">
             We received a request to reset the password for your account
-            (<strong>${user.username}</strong>). Click the button below to set a new password.
+            (<strong>${
+          user.username}</strong>). Click the button below to set a new password.
             This link expires in <strong>15 minutes</strong>.
           </p>
           <div style="text-align: center; margin: 28px 0;">
-            <a href="${resetLink}" style="background: #2196f3; color: #fff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
+            <a href="${
+          resetLink}" style="background: #2196f3; color: #fff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
               Reset Password
             </a>
           </div>
@@ -74,7 +81,8 @@ exports.forgotPassword = async (req, res) => {
     });
 
     // Mask the email for the response
-    const masked = user.email.replace(/(.{2})(.*)(@.*)/, (_, a, b, c) => a + '*'.repeat(b.length) + c);
+    const masked = user.email.replace(
+        /(.{2})(.*)(@.*)/, (_, a, b, c) => a + '*'.repeat(b.length) + c);
 
     return res.json({
       status: 'success',
@@ -82,7 +90,8 @@ exports.forgotPassword = async (req, res) => {
     });
   } catch (err) {
     console.error('Forgot password error:', err);
-    return res.status(500).json({ status: 'fail', message: 'Something went wrong. Please try again.' });
+    return res.status(500).json(
+        {status: 'fail', message: 'Something went wrong. Please try again.'});
   }
 };
 
@@ -90,35 +99,41 @@ exports.forgotPassword = async (req, res) => {
 // Accepts { token, newPassword }
 exports.resetPassword = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const {token, newPassword} = req.body;
 
     if (!token || !newPassword) {
-      return res.json({ status: 'fail', message: 'Token and new password are required.' });
+      return res.json(
+          {status: 'fail', message: 'Token and new password are required.'});
     }
 
     if (newPassword.length < 6) {
-      return res.json({ status: 'fail', message: 'Password must be at least 6 characters.' });
+      return res.json(
+          {status: 'fail', message: 'Password must be at least 6 characters.'});
     }
 
     // Look up token
     const tokenData = resetTokens.get(token);
 
     if (!tokenData) {
-      return res.json({ status: 'fail', message: 'Invalid or expired reset link.' });
+      return res.json(
+          {status: 'fail', message: 'Invalid or expired reset link.'});
     }
 
     // Check expiry
     if (Date.now() > tokenData.expiresAt) {
       resetTokens.delete(token);
-      return res.json({ status: 'fail', message: 'Reset link has expired. Please request a new one.' });
+      return res.json({
+        status: 'fail',
+        message: 'Reset link has expired. Please request a new one.'
+      });
     }
 
     // Find user and update password
-    const user = await User.findOne({ user_id: tokenData.userId });
+    const user = await User.findOne({user_id: tokenData.userId});
 
     if (!user) {
       resetTokens.delete(token);
-      return res.json({ status: 'fail', message: 'User not found.' });
+      return res.json({status: 'fail', message: 'User not found.'});
     }
 
     // Hash the new password
@@ -129,10 +144,12 @@ exports.resetPassword = async (req, res) => {
     // Invalidate the token
     resetTokens.delete(token);
 
-    return res.json({ status: 'success', message: 'Password has been reset successfully.' });
+    return res.json(
+        {status: 'success', message: 'Password has been reset successfully.'});
   } catch (err) {
     console.error('Reset password error:', err);
-    return res.status(500).json({ status: 'fail', message: 'Something went wrong. Please try again.' });
+    return res.status(500).json(
+        {status: 'fail', message: 'Something went wrong. Please try again.'});
   }
 };
 
@@ -140,21 +157,23 @@ exports.resetPassword = async (req, res) => {
 // Verify token is still valid (frontend uses this on page load)
 exports.verifyToken = async (req, res) => {
   try {
-    const { token } = req.query;
+    const {token} = req.query;
 
     if (!token) {
-      return res.json({ status: 'fail', message: 'No token provided.' });
+      return res.json({status: 'fail', message: 'No token provided.'});
     }
 
     const tokenData = resetTokens.get(token);
 
     if (!tokenData || Date.now() > tokenData.expiresAt) {
       if (tokenData) resetTokens.delete(token);
-      return res.json({ status: 'fail', message: 'Invalid or expired reset link.' });
+      return res.json(
+          {status: 'fail', message: 'Invalid or expired reset link.'});
     }
 
-    return res.json({ status: 'success', message: 'Token is valid.' });
+    return res.json({status: 'success', message: 'Token is valid.'});
   } catch (err) {
-    return res.status(500).json({ status: 'fail', message: 'Something went wrong.' });
+    return res.status(500).json(
+        {status: 'fail', message: 'Something went wrong.'});
   }
 };
