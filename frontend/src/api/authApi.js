@@ -20,3 +20,39 @@ export const registerAdmin = async (data) => {
     };
   }
 };
+
+export const forgotPassword = async (identifier) => {
+  try {
+    const res = await axiosInstance.post('/password/forgot', { identifier });
+    return res.data;
+  } catch (err) {
+    return {
+      status: 'fail',
+      message: err.response ? err.response.data?.message : 'Network Error',
+    };
+  }
+};
+
+export const resetPassword = async (token, newPassword) => {
+  try {
+    const res = await axiosInstance.post('/password/reset', { token, newPassword });
+    return res.data;
+  } catch (err) {
+    return {
+      status: 'fail',
+      message: err.response ? err.response.data?.message : 'Network Error',
+    };
+  }
+};
+
+export const verifyResetToken = async (token) => {
+  try {
+    const res = await axiosInstance.get(`/password/verify-token?token=${token}`);
+    return res.data;
+  } catch (err) {
+    return {
+      status: 'fail',
+      message: err.response ? err.response.data?.message : 'Network Error',
+    };
+  }
+};
