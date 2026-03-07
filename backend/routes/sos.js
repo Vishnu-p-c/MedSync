@@ -1243,11 +1243,11 @@ router.post('/cancel', async (req, res) => {
           {status: 'fail', message: 'not_request_owner'});
     }
 
-    // Only pending, awaiting_driver (legacy), awaiting_driver_response,
-    // assigned, or driver_arrived can be cancelled
+    // Cancel is allowed for all active statuses except completed
     if (sos.status === 'pending' || sos.status === 'awaiting_driver' ||
         sos.status === 'awaiting_driver_response' ||
-        sos.status === 'assigned' || sos.status === 'driver_arrived') {
+        sos.status === 'assigned' || sos.status === 'driver_arrived' ||
+        sos.status === 'hospital_assigned') {
       sos.status = 'cancelled';
       sos.cancelled_before_pickup = true;
       await sos.save();
