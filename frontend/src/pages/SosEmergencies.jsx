@@ -67,6 +67,8 @@ const SosEmergencies = () => {
         return 'bg-green-500/20 text-green-400 border-green-500/40';
       case 'awaiting_driver_response':
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40';
+      case 'hospital_assigned':
+        return 'bg-purple-500/20 text-purple-400 border-purple-500/40';
       default:
         return 'bg-gray-500/20 text-gray-400 border-gray-500/40';
     }
@@ -78,6 +80,7 @@ const SosEmergencies = () => {
       case 'assigned': return 'Driver Assigned';
       case 'driver_arrived': return 'Driver Arrived';
       case 'awaiting_driver_response': return 'Awaiting Driver';
+      case 'hospital_assigned': return 'En Route to Hospital';
       default: return status?.replace(/_/g, ' ') || 'Unknown';
     }
   };
@@ -117,15 +120,14 @@ const SosEmergencies = () => {
   }, []);
 
   // Update map markers and route
-  const updateMap = useCallback((sos) => {
+  // Renders all SOS markers; selected one is highlighted, others are dimmed.
+  const updateMap = useCallback((allSos, selected, onSelect) => {
     if (!mapRef.current || !window.L) return;
 
     const L = window.L;
 
     // Clear existing markers
-    Object.values(markersRef.current).forEach(marker => {
-      marker.remove();
-    });
+    Object.values(markersRef.current).forEach(marker => marker.remove());
     markersRef.current = {};
 
     // Clear existing route
@@ -134,137 +136,135 @@ const SosEmergencies = () => {
       routePolylineRef.current = null;
     }
 
-    if (!sos) return;
+    if (!allSos || allSos.length === 0) return;
 
-    const bounds = [];
+    const allBounds = [];
+    const selectedBounds = [];
 
-    // Hospital marker (red with hospital icon)
-    if (sos.hospital_latitude && sos.hospital_longitude) {
-      const hospitalIcon = L.divIcon({
-        className: 'custom-marker-icon',
-        html: `<div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.6); display: flex; align-items: center; justify-content: center; position: relative;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>
-          </svg>
-          <div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid white;"></div>
-        </div>`,
-        iconSize: [36, 44],
-        iconAnchor: [18, 44],
-        popupAnchor: [0, -44]
-      });
+    allSos.forEach(sos => {
+      const isSelected = selected?.sos_id === sos.sos_id;
+      // Dim markers that belong to other SOS when one is selected
+      const opacity = selected && !isSelected ? '0.4' : '1';
+      const grayFilter = selected && !isSelected ? 'grayscale(50%)' : 'none';
 
-      const hospitalMarker = L.marker([sos.hospital_latitude, sos.hospital_longitude], { icon: hospitalIcon })
-        .addTo(mapRef.current)
-        .bindPopup(`<div style="font-family: system-ui; padding: 4px;">
-          <strong style="color: #ef4444; font-size: 14px;">🏥 Hospital</strong><br/>
-          <span style="color: #333; font-size: 13px;">${sos.hospital_name || 'Unknown Hospital'}</span>
-        </div>`);
-      
-      markersRef.current.hospital = hospitalMarker;
-      bounds.push([sos.hospital_latitude, sos.hospital_longitude]);
-    }
+      // Hospital marker
+      if (sos.hospital_latitude && sos.hospital_longitude) {
+        const size = isSelected ? 36 : 26;
+        const half = size / 2;
+        const pinH = Math.round(size * 0.22);
+        const totalH = size + pinH;
+        const ring = isSelected ? `outline: 3px solid rgba(239,68,68,0.5); outline-offset: 3px;` : '';
+        const hospitalIcon = L.divIcon({
+          className: 'custom-marker-icon',
+          html: `<div style="opacity:${opacity};filter:${grayFilter};background:linear-gradient(135deg,#ef4444,#dc2626);width:${size}px;height:${size}px;border-radius:50%;border:${isSelected ? 3 : 2}px solid white;box-shadow:0 4px 12px rgba(239,68,68,${isSelected ? 0.7 : 0.35});display:flex;align-items:center;justify-content:center;position:relative;${ring}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(size*0.5)}" height="${Math.round(size*0.5)}" viewBox="0 0 24 24" fill="white"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/></svg>
+            <div style="position:absolute;bottom:-${pinH}px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:${half*0.5}px solid transparent;border-right:${half*0.5}px solid transparent;border-top:${pinH}px solid white;"></div>
+          </div>`,
+          iconSize: [size, totalH],
+          iconAnchor: [half, totalH],
+          popupAnchor: [0, -totalH]
+        });
+        const marker = L.marker([sos.hospital_latitude, sos.hospital_longitude], {icon: hospitalIcon})
+          .addTo(mapRef.current)
+          .bindPopup(`<div style="font-family:system-ui;padding:4px"><strong style="color:#ef4444;font-size:14px">🏥 ${sos.hospital_name || 'Hospital'}</strong><br/><span style="color:#666;font-size:12px">SOS #${sos.sos_id}</span></div>`);
+        marker.on('click', () => onSelect(sos));
+        markersRef.current[`hospital_${sos.sos_id}`] = marker;
+        allBounds.push([sos.hospital_latitude, sos.hospital_longitude]);
+        if (isSelected) selectedBounds.push([sos.hospital_latitude, sos.hospital_longitude]);
+      }
 
-    // Patient marker (orange with person icon)
-    if (sos.patient_latitude && sos.patient_longitude) {
-      const patientIcon = L.divIcon({
-        className: 'custom-marker-icon',
-        html: `<div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(249, 115, 22, 0.5); display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; position: relative;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-          </svg>
-          <div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid white;"></div>
-        </div>`,
-        iconSize: [32, 38],
-        iconAnchor: [16, 38],
-        popupAnchor: [0, -38]
-      });
-
-      const patientMarker = L.marker([sos.patient_latitude, sos.patient_longitude], { icon: patientIcon })
-        .addTo(mapRef.current)
-        .bindPopup(`<div style="font-family: system-ui; padding: 4px;">
-          <strong style="color: #f97316; font-size: 14px;">🚨 Patient</strong><br/>
-          <span style="color: #333; font-size: 13px;">${sos.patient_name || 'Unknown'}</span><br/>
-          <span style="color: #666; font-size: 12px;">SOS #${sos.sos_id}</span>
-        </div>`);
-      
-      markersRef.current.patient = patientMarker;
-      bounds.push([sos.patient_latitude, sos.patient_longitude]);
-    }
-
-    // Driver/Ambulance marker (blue with ambulance icon, animated)
-    if (sos.driver_latitude && sos.driver_longitude) {
-      const driverIcon = L.divIcon({
-        className: 'custom-marker-icon',
-        html: `<div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 40px; height: 40px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.7), 0 0 0 0 rgba(59, 130, 246, 0.4); display: flex; align-items: center; justify-content: center; animation: bounce 1s infinite, ripple 2s infinite; position: relative;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white">
-            <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
-          </svg>
-          <div style="position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid white;"></div>
-        </div>`,
-        iconSize: [40, 50],
-        iconAnchor: [20, 50],
-        popupAnchor: [0, -50]
-      });
-
-      const driverMarker = L.marker([sos.driver_latitude, sos.driver_longitude], { icon: driverIcon })
-        .addTo(mapRef.current)
-        .bindPopup(`<div style="font-family: system-ui; padding: 4px;">
-          <strong style="color: #3b82f6; font-size: 14px;">🚑 Ambulance</strong><br/>
-          <span style="color: #333; font-size: 13px;">Driver: ${sos.driver_name || 'Unknown'}</span><br/>
-          <span style="color: #666; font-size: 12px;">Vehicle: ${sos.vehicle_number || 'N/A'}</span>
-        </div>`);
-      
-      markersRef.current.driver = driverMarker;
-      bounds.push([sos.driver_latitude, sos.driver_longitude]);
-    }
-
-    // Draw route polyline from driver → patient → hospital
-    if (sos.driver_latitude && sos.driver_longitude && 
-        sos.hospital_latitude && sos.hospital_longitude) {
-      const routePoints = [];
-      
-      // Start: Driver location
-      routePoints.push([sos.driver_latitude, sos.driver_longitude]);
-      
-      // Middle: Patient pickup (if available)
+      // Patient marker
       if (sos.patient_latitude && sos.patient_longitude) {
-        routePoints.push([sos.patient_latitude, sos.patient_longitude]);
+        const size = isSelected ? 32 : 24;
+        const half = size / 2;
+        const pinH = Math.round(size * 0.2);
+        const totalH = size + pinH;
+        const anim = isSelected ? 'animation:pulse 2s infinite;' : '';
+        const ring = isSelected ? `outline: 3px solid rgba(249,115,22,0.4); outline-offset: 3px;` : '';
+        const patientIcon = L.divIcon({
+          className: 'custom-marker-icon',
+          html: `<div style="opacity:${opacity};filter:${grayFilter};background:linear-gradient(135deg,#f97316,#ea580c);width:${size}px;height:${size}px;border-radius:50%;border:${isSelected ? 3 : 2}px solid white;box-shadow:0 4px 10px rgba(249,115,22,${isSelected ? 0.6 : 0.3});display:flex;align-items:center;justify-content:center;${anim}position:relative;${ring}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(size*0.5)}" height="${Math.round(size*0.5)}" viewBox="0 0 24 24" fill="white"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <div style="position:absolute;bottom:-${pinH}px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:${half*0.45}px solid transparent;border-right:${half*0.45}px solid transparent;border-top:${pinH}px solid white;"></div>
+          </div>`,
+          iconSize: [size, totalH],
+          iconAnchor: [half, totalH],
+          popupAnchor: [0, -totalH]
+        });
+        const marker = L.marker([sos.patient_latitude, sos.patient_longitude], {icon: patientIcon})
+          .addTo(mapRef.current)
+          .bindPopup(`<div style="font-family:system-ui;padding:4px"><strong style="color:#f97316;font-size:14px">🚨 ${sos.patient_name || 'Patient'}</strong><br/><span style="color:#666;font-size:12px">SOS #${sos.sos_id}</span></div>`);
+        marker.on('click', () => onSelect(sos));
+        markersRef.current[`patient_${sos.sos_id}`] = marker;
+        allBounds.push([sos.patient_latitude, sos.patient_longitude]);
+        if (isSelected) selectedBounds.push([sos.patient_latitude, sos.patient_longitude]);
       }
-      
-      // End: Hospital destination
-      routePoints.push([sos.hospital_latitude, sos.hospital_longitude]);
 
-      // Create polyline with Google Maps-like styling
-      routePolylineRef.current = L.polyline(routePoints, {
-        color: '#3b82f6',
-        weight: 5,
-        opacity: 0.8,
-        smoothFactor: 1,
-        lineCap: 'round',
-        lineJoin: 'round',
-        dashArray: '10, 10',
-        dashOffset: '0'
-      }).addTo(mapRef.current);
+      // Ambulance marker
+      if (sos.driver_latitude && sos.driver_longitude) {
+        const size = isSelected ? 40 : 28;
+        const half = size / 2;
+        const pinH = Math.round(size * 0.28);
+        const totalH = size + pinH;
+        const anim = isSelected ? 'animation:bounce 1s infinite,ripple 2s infinite;' : '';
+        const ring = isSelected ? `outline: 3px solid rgba(59,130,246,0.4); outline-offset: 3px;` : '';
+        const driverIcon = L.divIcon({
+          className: 'custom-marker-icon',
+          html: `<div style="opacity:${opacity};filter:${grayFilter};background:linear-gradient(135deg,#3b82f6,#2563eb);width:${size}px;height:${size}px;border-radius:50%;border:${isSelected ? 4 : 2}px solid white;box-shadow:0 4px 14px rgba(59,130,246,${isSelected ? 0.7 : 0.3});display:flex;align-items:center;justify-content:center;${anim}position:relative;${ring}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(size*0.5)}" height="${Math.round(size*0.5)}" viewBox="0 0 24 24" fill="white"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+            <div style="position:absolute;bottom:-${pinH}px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:${half*0.5}px solid transparent;border-right:${half*0.5}px solid transparent;border-top:${pinH}px solid white;"></div>
+          </div>`,
+          iconSize: [size, totalH],
+          iconAnchor: [half, totalH],
+          popupAnchor: [0, -totalH]
+        });
+        const marker = L.marker([sos.driver_latitude, sos.driver_longitude], {icon: driverIcon})
+          .addTo(mapRef.current)
+          .bindPopup(`<div style="font-family:system-ui;padding:4px"><strong style="color:#3b82f6;font-size:14px">🚑 ${sos.driver_name || 'Driver'}</strong><br/><span style="color:#333;font-size:13px">Vehicle: ${sos.vehicle_number || 'N/A'}</span><br/><span style="color:#666;font-size:12px">SOS #${sos.sos_id}</span></div>`);
+        marker.on('click', () => onSelect(sos));
+        markersRef.current[`driver_${sos.sos_id}`] = marker;
+        allBounds.push([sos.driver_latitude, sos.driver_longitude]);
+        if (isSelected) selectedBounds.push([sos.driver_latitude, sos.driver_longitude]);
+      }
 
-      // Add animated dash effect
-      let dashOffset = 0;
-      const animateDash = () => {
-        dashOffset += 1;
-        if (routePolylineRef.current) {
-          routePolylineRef.current.setStyle({ dashOffset: dashOffset.toString() });
-          requestAnimationFrame(animateDash);
+      // Route polyline only for the selected SOS
+      if (isSelected && sos.driver_latitude && sos.driver_longitude &&
+          sos.hospital_latitude && sos.hospital_longitude) {
+        const routePoints = [[sos.driver_latitude, sos.driver_longitude]];
+        if (sos.patient_latitude && sos.patient_longitude) {
+          routePoints.push([sos.patient_latitude, sos.patient_longitude]);
         }
-      };
-      animateDash();
-    }
+        routePoints.push([sos.hospital_latitude, sos.hospital_longitude]);
 
-    // Fit bounds to show all markers
-    if (bounds.length > 0) {
-      if (bounds.length === 1) {
-        mapRef.current.setView(bounds[0], 14);
-      } else {
-        mapRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+        routePolylineRef.current = L.polyline(routePoints, {
+          color: '#3b82f6',
+          weight: 5,
+          opacity: 0.8,
+          smoothFactor: 1,
+          lineCap: 'round',
+          lineJoin: 'round',
+          dashArray: '10, 10',
+          dashOffset: '0'
+        }).addTo(mapRef.current);
+
+        let dashOffset = 0;
+        const animateDash = () => {
+          dashOffset += 1;
+          if (routePolylineRef.current) {
+            routePolylineRef.current.setStyle({dashOffset: dashOffset.toString()});
+            requestAnimationFrame(animateDash);
+          }
+        };
+        animateDash();
       }
+    });
+
+    // Fit to selected SOS if one is chosen, otherwise show all
+    const boundsToFit = selected ? selectedBounds : allBounds;
+    if (boundsToFit.length > 1) {
+      mapRef.current.fitBounds(boundsToFit, {padding: [60, 60], maxZoom: 15});
+    } else if (boundsToFit.length === 1) {
+      mapRef.current.setView(boundsToFit[0], 14);
     }
   }, []);
 
@@ -350,10 +350,10 @@ const SosEmergencies = () => {
     return () => clearInterval(interval);
   }, [fetchIncomingSos]);
 
-  // Update map when selected SOS changes
+  // Update map when SOS list or selection changes
   useEffect(() => {
-    updateMap(selectedSos);
-  }, [selectedSos, updateMap]);
+    updateMap(sosRequests, selectedSos, setSelectedSos);
+  }, [sosRequests, selectedSos, updateMap]);
 
   // Format time ago
   const formatTimeAgo = (timestamp) => {
@@ -537,7 +537,12 @@ const SosEmergencies = () => {
 
                 {/* Selected SOS Details */}
                 {selectedSos && (
-                  <div className="mt-4 p-4 rounded-lg bg-white/5 border border-white/10">
+                  <div key={selectedSos.sos_id} className="mt-4 p-4 rounded-lg bg-white/5 border border-white/10">
+                    {/* Header row: SOS ID + time */}
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-white font-semibold text-sm">SOS #{selectedSos.sos_id}</p>
+                      <p className="text-white/40 text-xs">{formatTimeAgo(selectedSos.created_at)}</p>
+                    </div>
                     <div className="flex flex-wrap items-center gap-3 mb-3">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${getSeverityStyle(selectedSos.severity).badge}`}>
                         {(selectedSos.severity || 'unknown').toUpperCase()}
