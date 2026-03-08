@@ -12,10 +12,14 @@ oauth2Client.setCredentials({
 async function sendEmail({to, subject, html}) {
   const gmail = google.gmail({version: 'v1', auth: oauth2Client});
 
+  // MIME encode the subject to handle special characters
+  const encodedSubject =
+      `=?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`;
+
   const message = [
     `To: ${to}`,
     `From: "MedSync" <${process.env.EMAIL_USER}>`,
-    `Subject: ${subject}`,
+    `Subject: ${encodedSubject}`,
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=UTF-8',
     '',

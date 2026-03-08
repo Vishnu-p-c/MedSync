@@ -3652,3 +3652,111 @@ Notes:
                               END OF API REFERENCE
 ================================================================================
 
+
+
+================================================================================
+PASSWORD RESET
+================================================================================
+
+POST /password/forgot
+--------------------------------------------------------------------------------
+Description: Send a password reset link to the admin's email (web app only).
+             Only works for accounts with role "admin".
+
+Request Body:
+{
+  "identifier": "string (required) - username or email"
+}
+
+Notes:
+- If identifier contains "@", it is validated as an email format before lookup.
+- The reset link expires in 15 minutes.
+- The link opens the web app reset page: /reset-password?token=...
+
+Success Response:
+{
+  "status": "success",
+  "message": "Password reset link sent to me**@example.com"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "Please provide a username or email." }
+{ "status": "fail", "message": "Please enter a valid email address." }
+{ "status": "fail", "message": "No account found with that username or email." }
+{ "status": "fail", "message": "Password reset on the web app is only available for admins." }
+{ "status": "fail", "message": "Something went wrong. Please try again." }
+
+--------------------------------------------------------------------------------
+
+POST /password/mobile/forgot
+--------------------------------------------------------------------------------
+Description: Send a password reset link to the user's email (mobile app only).
+             Only works for accounts with role "patient", "doctor", or "driver".
+
+Request Body:
+{
+  "identifier": "string (required) - username or email"
+}
+
+Notes:
+- If identifier contains "@", it is validated as an email format before lookup.
+- The reset link expires in 15 minutes.
+- The link opens the web app reset page: /reset-password?token=...
+
+Success Response:
+{
+  "status": "success",
+  "message": "Password reset link sent to me**@example.com"
+}
+
+Failure Responses:
+{ "status": "fail", "message": "Please provide a username or email." }
+{ "status": "fail", "message": "Please enter a valid email address." }
+{ "status": "fail", "message": "No account found with that username or email." }
+{ "status": "fail", "message": "This reset is only available for patients, doctors, and drivers." }
+{ "status": "fail", "message": "Something went wrong. Please try again." }
+
+--------------------------------------------------------------------------------
+
+POST /password/reset
+--------------------------------------------------------------------------------
+Description: Reset the user's password using the token from the reset email link.
+             Used by both web and mobile flows.
+
+Request Body:
+{
+  "token": "string (required) - token from the reset link query param",
+  "newPassword": "string (required, min 6 characters)"
+}
+
+Success Response:
+{
+  "status": "success",
+  "message": "Password has been reset successfully."
+}
+
+Failure Responses:
+{ "status": "fail", "message": "Token and new password are required." }
+{ "status": "fail", "message": "Password must be at least 6 characters." }
+{ "status": "fail", "message": "Invalid or expired reset link." }
+{ "status": "fail", "message": "Reset link has expired. Please request a new one." }
+{ "status": "fail", "message": "User not found." }
+{ "status": "fail", "message": "Something went wrong. Please try again." }
+
+--------------------------------------------------------------------------------
+
+GET /password/verify-token
+--------------------------------------------------------------------------------
+Description: Verify whether a reset token is still valid. Called by the web app
+             reset page on load to check if the link has expired.
+
+Query Parameters:
+  token (required) - the token from the reset link
+
+Success Response:
+{ "status": "success", "message": "Token is valid." }
+
+Failure Responses:
+{ "status": "fail", "message": "No token provided." }
+{ "status": "fail", "message": "Invalid or expired reset link." }
+{ "status": "fail", "message": "Something went wrong." }
