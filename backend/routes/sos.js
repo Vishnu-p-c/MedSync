@@ -1308,7 +1308,10 @@ router.post('/hospital-incoming', async (req, res) => {
             .find({
               assigned_hospital_id: {$in: hospitalIds},
               status: {
-                $in: ['assigned', 'driver_arrived', 'awaiting_driver_response']
+                $in: [
+                  'assigned', 'driver_arrived', 'awaiting_driver_response',
+                  'hospital_assigned'
+                ]
               }
             })
             .lean();
