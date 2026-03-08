@@ -29,7 +29,20 @@ export default function Discover() {
         <Link to="/" className="fixed top-4 left-4 z-50">
           <img src={medsyncLogo} alt="MedSync Home" className="h-10 w-auto" />
         </Link>
-        <div className="flex flex-col overflow-hidden pb-[500px] pt-[1000px]">
+        <div className="flex flex-col items-center justify-center h-screen">
+          <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight text-center">
+            Discover MedSync
+          </h1>
+          <p className="mt-4 text-lg text-white/50">Scroll down to explore</p>
+          <motion.div
+            animate={{ y: [0, 12, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+            className="mt-8 text-white/40"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </motion.div>
+        </div>
+        <div className="flex flex-col overflow-hidden pb-[500px]">
           <ContainerScroll
             titleComponent={
               <>
