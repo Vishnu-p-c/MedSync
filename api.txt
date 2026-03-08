@@ -3305,7 +3305,7 @@ Failure Responses:
 { "status": "fail", "message": "admin_not_found" }
 
 Notes:
-  - Only returns SOS with status: assigned, driver_arrived, awaiting_driver_response
+  - Only returns SOS with status: assigned, driver_arrived, awaiting_driver_response, hospital_assigned
   - Completed and cancelled SOS are excluded
   - Driver location is fetched from AmbulanceLiveLocation (real-time)
   - Recommended polling interval: 5 seconds for live tracking
