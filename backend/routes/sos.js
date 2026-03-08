@@ -1302,7 +1302,8 @@ router.post('/hospital-incoming', async (req, res) => {
 
     // Find active SOS requests assigned to any of these hospitals
     // Active statuses: assigned, driver_arrived (excluding completed,
-    // cancelled)
+    // cancelled), and created within the last 12 hours (stale SOS filter)
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
     const activeSosRequests =
         await SosRequest
             .find({
@@ -1312,7 +1313,8 @@ router.post('/hospital-incoming', async (req, res) => {
                   'assigned', 'driver_arrived', 'awaiting_driver_response',
                   'hospital_assigned'
                 ]
-              }
+              },
+              created_at: {$gte: twelveHoursAgo}
             })
             .lean();
 
