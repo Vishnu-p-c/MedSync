@@ -4,7 +4,8 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 import medsyncLogo from "@/assets/20251216_131631.png";
-import mobileAppMockup from "@/assets/WhatsApp Image 2026-03-07 at 7.02.45 PM.png";
+import mobileAppImage from "@/assets/IMG_7237.JPEG";
+import webAppImage from "@/assets/IMG_7248.JPEG";
 
 function ScrollFadeText({ children, className }) {
   const ref = useRef(null);
@@ -56,7 +57,7 @@ export default function Discover() {
             }
           >
             <img
-              src={mobileAppMockup}
+              src={mobileAppImage}
               alt="MedSync Mobile App"
               className="w-full h-full rounded-2xl object-cover"
               draggable={false}
@@ -78,7 +79,7 @@ export default function Discover() {
             }
           >
             <img
-              src={mobileAppMockup}
+              src={webAppImage}
               alt="MedSync Web App"
               className="w-full h-full rounded-2xl object-cover"
               draggable={false}
