@@ -3,6 +3,7 @@ import ReactLenis from "lenis/react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
+import TextReveal from "@/components/ui/text-reveal";
 import medsyncLogo from "@/assets/20251216_131631.png";
 import mobileAppImage from "@/assets/IMG_7237.JPEG";
 import webAppImage from "@/assets/IMG_7248.JPEG";
@@ -88,6 +89,27 @@ export default function Discover() {
           <ScrollFadeText className="max-w-3xl mx-auto text-center text-lg md:text-xl text-white/70 leading-relaxed px-6 -mt-20 mb-40">
             The MedSync web app provides a powerful dashboard for hospital administrators and doctors to manage patient flow, monitor real-time bed availability, coordinate ambulance dispatch, and oversee doctor schedules — all from a single unified interface designed to streamline hospital operations and improve emergency response times.
           </ScrollFadeText>
+          <div className="w-full max-w-4xl mx-auto py-20">
+            <TextReveal word="OUR SOFTWARE IS COMPLETELY FREE AND OPEN SOURCE" />
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mt-12">
+              <a
+                href="https://github.com/Vishnu-p-c/MedSync"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors text-sm font-medium"
+              >
+                Web App — GitHub
+              </a>
+              <a
+                href="https://github.com/thusharpradeep/medsync_android_studio"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors text-sm font-medium"
+              >
+                Mobile App — GitHub
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </ReactLenis>
